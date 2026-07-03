@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.0.1';
+const KIT_VERSION = '4.0.2';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -1000,6 +1000,7 @@ async function runPlan(args) {
 	for (const rel of legacyFiles) {
 		const b = basename(rel);
 		if (b === '.DS_Store' || b === 'CLAUDE.md' || b === 'README.md') continue; // 문서·잡파일은 이동 계획 밖 (수동 정리)
+		if (rel in overrides) { addMove(rel, overrides[rel]); continue; } // overrides 최우선 — 휴리스틱 밖(미분류) 파일도 대상 지정 가능
 		// routes → app/routes
 		if (rel.startsWith('src/routes/')) { addMove(rel, rel.replace('src/routes/', 'src/app/routes/')); continue; }
 		if (rel === 'src/app.html') { addMove(rel, 'src/app/index.html'); continue; }
@@ -1038,10 +1039,11 @@ async function runPlan(args) {
 		if (sm) { addMove(rel, `src/server/${sm[1]}/${sm[1]}.${sm[2]}.ts`); continue; }
 		if (rel.startsWith('src/lib/server/')) { addMove(rel, rel.replace('src/lib/server/', 'src/server/')); continue; }
 		// types·state·utils
-		const tm = rel.match(/^src\/lib\/types\/([^/]+)\.ts$/);
+		const tm = rel.match(/^src\/lib\/types\/([^/]+?)(\.spec)?\.ts$/);
 		if (tm) {
-			const name = tm[1].replace(/\.spec$/, '');
-			addMove(rel, domains.has(name) ? `src/entities/${name}/model/types.ts` : `src/shared/model/${name}.types.ts`);
+			const [, name, spec = ''] = tm;
+			const stem = domains.has(name) ? `src/entities/${name}/model/types` : `src/shared/model/${name}.types`;
+			addMove(rel, `${stem}${spec}.ts`); // spec은 본체와 별도 대상 — 동일 대상 덮어쓰기 금지
 			continue;
 		}
 		const stm = rel.match(/^src\/lib\/state\/([^/]+)\.svelte(\.spec)?\.ts$/);
@@ -1065,13 +1067,19 @@ async function runPlan(args) {
 	const skipped = moves.filter((m) => existsSync(join(ROOT, m.to)) && m.from !== m.to);
 	const applied = moves.filter((m) => !existsSync(join(ROOT, m.to)));
 	const map = new Map(applied.map((m) => [m.from, m.to]));
+	// 동일 대상 충돌 — 두 소스가 한 대상으로 계산되면 나중 rename이 앞선 것을 덮어쓴다(자료 소실). apply 강제 중단 대상.
+	const dupes = [...Map.groupBy(applied, (m) => m.to).values()].filter((l) => l.length > 1);
 
-	// 임포트 재작성
+	// 임포트 재작성 — src 밖 소비자(tests·e2e)도 $lib/@ 절대 스펙을 쓰므로 포함(이동은 없음, 재작성만)
 	const files = [];
-	for await (const abs of walk(join(ROOT, 'src'))) {
-		const rel = norm(relative(ROOT, abs));
-		if (!/\.(svelte|ts|js|tsx|html|css)$/.test(rel)) continue;
-		files.push({ abs, rel, content: await readFile(abs, 'utf-8') });
+	for (const consumerRoot of ['src', 'tests', 'e2e']) {
+		const dir = join(ROOT, consumerRoot);
+		if (!existsSync(dir)) continue;
+		for await (const abs of walk(dir)) {
+			const rel = norm(relative(ROOT, abs));
+			if (!/\.(svelte|ts|js|tsx|html|css)$/.test(rel)) continue;
+			files.push({ abs, rel, content: await readFile(abs, 'utf-8') });
+		}
 	}
 	const pjoin = (...parts) => {
 		const out = [];
@@ -1093,18 +1101,28 @@ async function runPlan(args) {
 			const oldSpecs = [f.replace(/^src\/lib\//, '$lib/'), f.replace(/^src\//, '$lib/../'), toAlias(f), f];
 			for (const os of oldSpecs) {
 				out = out.replaceAll(`'${os}'`, `'${toAlias(t)}'`).replaceAll(`"${os}"`, `"${toAlias(t)}"`);
+				if (!os.endsWith('.ts')) continue;
 				const noExt = os.replace(/\.ts$/, '');
-				if (noExt !== os) out = out.replaceAll(`'${noExt}'`, `'${toAlias(t).replace(/\.ts$/, '')}'`).replaceAll(`"${noExt}"`, `"${toAlias(t).replace(/\.ts$/, '')}"`);
+				out = out.replaceAll(`'${noExt}'`, `'${toAlias(t).replace(/\.ts$/, '')}'`).replaceAll(`"${noExt}"`, `"${toAlias(t).replace(/\.ts$/, '')}"`);
+				// vanilla vendor 등은 .ts 소스를 .js 확장자로 임포트한다(moduleResolution bundler)
+				const asJs = os.replace(/\.ts$/, '.js');
+				out = out.replaceAll(`'${asJs}'`, `'${toAlias(t).replace(/\.ts$/, '.js')}'`).replaceAll(`"${asJs}"`, `"${toAlias(t).replace(/\.ts$/, '.js')}"`);
+				// index.ts 는 디렉토리 배럴 스펙으로도 소비된다 ('$lib/components/ui/popover')
+				if (basename(f) === 'index.ts') {
+					const dirSpec = noExt.replace(/\/index$/, '');
+					const dirTarget = toAlias(t).replace(/\/index\.ts$/, '');
+					out = out.replaceAll(`'${dirSpec}'`, `'${dirTarget}'`).replaceAll(`"${dirSpec}"`, `"${dirTarget}"`);
+				}
 			}
 		}
 		// 상대 스펙 — 옛 위치 기준 해석 → 새 좌표
-		out = out.replace(/from\s*(['"])(\.[^'"]+)\1/g, (full, q, spec) => {
+		out = out.replace(/(from\s*|import\s*\(\s*)(['"])(\.[^'"]+)\2/g, (full, lead, q, spec) => {
 			let target = pjoin(dirname(oldRel), spec);
 			let mapped = map.get(target) ?? map.get(target + '.ts') ?? map.get(target.replace(/\.js$/, '.ts'));
 			if (!mapped) return full;
 			const myNewDir = dirname(newRel ?? oldRel);
 			const rewritten = norm(dirname(mapped)) === norm(myNewDir) ? `./${basename(mapped)}` : toAlias(mapped);
-			return `from ${q}${rewritten.replace(/\.ts$/, spec.endsWith('.ts') ? '.ts' : '')}${q}`;
+			return `${lead}${q}${rewritten.replace(/\.ts$/, spec.endsWith('.ts') ? '.ts' : '')}${q}`;
 		});
 		return out;
 	}
@@ -1117,7 +1135,7 @@ async function runPlan(args) {
 	// ── 출력 ──
 	const apply = args.has('--apply');
 	if (args.has('--json') && !apply) {
-		console.log(JSON.stringify({ kit: KIT_VERSION, moves: applied, deletes, skipped, followups, rewriteCount }, null, 2));
+		console.log(JSON.stringify({ kit: KIT_VERSION, moves: applied, deletes, skipped, dupes, followups, rewriteCount }, null, 2));
 		return 0;
 	}
 	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동 ${applied.length} · 삭제(배럴) ${deletes.length} · 임포트 재작성 ${rewriteCount}파일 · 미분류 ${followups.length}`);
@@ -1130,6 +1148,7 @@ async function runPlan(args) {
 	}
 	for (const d of deletes) console.log(`## 삭제(통합 배럴): ${d}`);
 	for (const s of skipped) console.log(`## ⚠ 건너뜀(대상 존재): ${s.from} ↛ ${s.to}`);
+	for (const l of dupes) console.log(`## ✗ 대상 충돌(자료 소실 위험): ${l.map((m) => m.from).join(' + ')}  →  ${l[0].to} — plan-overrides.json 으로 대상 분리 필요`);
 	if (followups.length) {
 		console.log(`\n## 미분류 (plan-overrides.json 으로 지정 후 재실행 — {"<from>": "<to|skip>"}):`);
 		for (const f of followups.slice(0, 20)) console.log(`  ${f}`);
@@ -1143,6 +1162,10 @@ async function runPlan(args) {
 	}
 
 	// ── 적용 게이트 ──
+	if (dupes.length) {
+		console.error(`✗ 거부 — 동일 대상 충돌 ${dupes.length}건(위 ✗ 목록). plan-overrides.json 으로 대상을 분리한 뒤 재실행.`);
+		return 1;
+	}
 	const cfgFile = ['svelte.config.js', 'svelte.config.ts'].map((f) => join(ROOT, f)).find(existsSync);
 	if (!cfgFile || !(await readFile(cfgFile, 'utf-8')).includes('src/app/routes')) {
 		console.error(`✗ 거부 — svelte.config 에 files.routes='src/app/routes' 수술이 선행돼야 합니다 (fsd-guide.md).`);
