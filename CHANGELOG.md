@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.1 — 2026-07-04
+
+**심층 검토 라운드 수정판** — 4중 병렬 리뷰(문서 정합·룰 패리티·킷 실측·템플릿 자기준수)의 발견 전량 반영. 룰 카탈로그 골격은 문서↔구현 **49=49 완전 패리티** 확인(유령 룰 0·미구현 룰 0·심각도 불일치 0).
+
+- fix(audit): `ENDPOINT_THICK`가 `+server.ts`의 db(database slice) 직접 접근을 놓치던 집행 구멍 — 형제 룰 `PAGE_SERVER_DATA_FETCH`와 동일 조건으로 정합.
+- fix(manifest): ① 서버 export 함수 TSDoc이 파일 헤더 블록코멘트에 브리지로 삼켜져 소실 — tempered 정규식(내부 `*/` 금지)으로 인접 doc만 인식 ② 한 줄 `export interface` 침묵 누락 — 중괄호 밸런스 스캔(`extractInterfaces`)으로 교체 ③ kebab-case slice(A7 의무 형식)의 CLAUDE.md 1행이 ASCII 하이픈에서 절단 — 구분자를 em-dash(—)로 한정 ④ `--slice` 별첨 #5(remote가 참조하는 shared/model 원문) 미구현이던 것 구현.
+- fix(new·plan): 생성기와 `plan --apply`가 **계층 루트 CLAUDE.md를 시드하지 않아** 새 계층 첫 생성 직후 자체 감사가 `MISSING_CLAUDE_MD`로 실패하던 갭 — `seedLayerClaude` 도입(new 전 경로 + plan 적용 시 계층·slice·server slice 전부).
+- fix(analyze): SKILL이 광고하던 해치 클러스터 신호(v3 유산)가 v4 재작성에서 빠졌던 것 복원 — `DUPLICATE_ESCAPE_HATCH` 군집 리포트.
+- fix(templates): ① Component.view `variant` prop TSDoc 누락(생성 직후 `UNDOCUMENTED_PROP` 자기 warn) ② view 템플릿 역할 placeholder가 `<`로 시작해 매니페스트 role/usage 오분류 ③ SliceSection.view에 생성기 치환 토큰(`SliceSection`·`example`) 부재 ④ adapter 주석의 합법 소비자에 adapter 누락.
+- docs: 룰 수 표기 48→**49** 정정(구 48은 B군 병합 행 기준 행 수 — `SET_PARTIAL_IMPORT`/`VENDOR_IMPORT` 분리 기재) · SKILL 접미사 목록 `.stories` 추가·"판정표 2종"·"steiger 흡수분 표기" 정밀화 · 룰 발화조건 서술 정합(PAGE_SERVER/ENDPOINT 대상 열거·CROSS_SLICE_SERVER 면제 3종·SEGMENT_UNKNOWN pages 맥락) · config `heavyReexportMax` 문서화 · plan `--full`/`--json` 표기 · 설치 풋프린트에 CLAUDE.md 씨앗·hooksPath 조건 기재 · migrations README 버전 판독 위치 정정.
+
 ## 4.0.0 — 2026-07-04
 
 **FSD 2.1 전면 채택 — 스킬 재정의: "SvelteKit × FSD 2.1 아키텍처 어드바이저".** 자체 발명(파일 종별 트리)보다 성문화된 표준을 흡수하는 방향 전환. 상세 설계 근거는 references/fsd-guide.md.

@@ -15,6 +15,7 @@
 
 ```bash
 bun run arch:plan            # 이동·리네임·3계층 분류·배럴 처리·임포트 재작성 규모를 표로
+bun run arch:plan -- --full  # 그룹당 5건 요약 대신 전체 목록 (--json 도구용)
 ```
 
 - **분류는 휴리스틱 제안일 뿐**: `*Section` view/live 페어→widgets · Form/Dialog/Modal/Popup→features · 잔여 표시 부품→entities · 구 layout 셸→블록당 widget slice · 구 primitive→shared/ui(`.view` 리네임) · 구 ui vendor→shared/vendor · remote→entities/api · service·repository→server/<slice> · types→entities/model|shared/model · state→model 분산 · utils→shared/lib(`.util`).

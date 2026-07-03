@@ -1,6 +1,6 @@
 # migrations — 버전 간 구조 변경 코드모드
 
-> init.mjs가 프로젝트의 설치 버전(scripts/arch.mjs 헤더 `KIT_VERSION`)과 kit/VERSION 사이의 마이그레이션을 semver 순으로 자동 실행한다.
+> init.mjs가 프로젝트의 설치 버전(`.svelte-arch/arch.mjs` 헤더 `KIT_VERSION`)과 kit/VERSION 사이의 마이그레이션을 semver 순으로 자동 실행한다.
 
 ## 계약
 
@@ -8,7 +8,7 @@
 - 형식:
 
 ```js
-export const summary = '트리 개편: components/composite/<d> → components/<d> + 임포트 치환';
+export const summary = '<이 마이그레이션이 하는 일 한 줄 — init 로그·완료 요약에 노출>';
 export default async function migrate({ ROOT, log }) {
 	// 프로젝트 파일 이동·리네임·임포트 치환 코드모드. 반드시 멱등으로 작성.
 }

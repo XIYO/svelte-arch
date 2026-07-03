@@ -27,7 +27,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(48룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(49룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
 
 ## 빠른 시작
 
@@ -41,7 +41,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 # 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘"
 ```
 
-설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
+설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice CLAUDE.md 씨앗(없는 곳만). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
 
 기존(비-FSD) 프로젝트는 `arch:plan`이 이행 제안표(svelte.config 수술 + 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱**)를 산출하고, 사용자 승인 후에만 `--apply`한다.
 
@@ -55,7 +55,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 ```text
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 48룰·매니페스트·도입·kit
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 49룰·매니페스트·도입·kit
 └── kit/              # init.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 

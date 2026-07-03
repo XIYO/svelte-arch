@@ -1,6 +1,6 @@
 <!--
 @component
-<역할 한 문장 — 매니페스트의 설명 필드가 된다. 업무 어휘 금지 (shared/ui).>
+Component — 역할 한 문장으로 교체 (매니페스트의 설명 필드가 된다. 업무 어휘 금지 — shared/ui).
 사용: <Component bind:value label="…" onConfirm={fn} variant="…" />
 -->
 <script lang="ts">
@@ -16,6 +16,7 @@
 		label: string;
 		/** 콜백은 camelCase onXxx — DOM passthrough(onclick 소문자)와 시각 구분 */
 		onConfirm?: (value: string) => void;
+		/** 시각 변형 — 값 의미는 위 별칭 TSDoc 참조 (shared/ui는 전 prop TSDoc 의무) */
 		variant?: ComponentVariant;
 		/** 마크업 주입 슬롯 */
 		children?: Snippet;

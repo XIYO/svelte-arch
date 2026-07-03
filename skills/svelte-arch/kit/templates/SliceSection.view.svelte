@@ -1,6 +1,6 @@
 <!--
 @component
-<이 view 의 역할 한 문장. 화면 루트 위젯이면 Base 를 <이름>Section 으로.>
+SliceSection — example slice 의 화면 루트. 역할 한 문장으로 교체 (화면 루트 위젯이면 Base 를 <이름>Section 으로).
 -->
 <script lang="ts">
 	// 타입은 wire 계약(model/types)에서 참조만 — 재선언 금지 (Pick/Omit 파생만)

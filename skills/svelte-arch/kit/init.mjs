@@ -5,6 +5,7 @@
  * 실행: 프로젝트 루트에서  bun <스킬경로>/kit/init.mjs  [--force]
  * - 최초 실행 = 스캐폴드 / 재실행 = kit-owned 동기화 + 대기 마이그레이션 자동 적용
  * - 설치물 = .svelte-arch/ + package.json arch:* 5줄 + CLAUDE.md 마커 블록 + 훅 파일 안 마커 블록
+ *   + 계층·slice CLAUDE.md 씨앗(없는 곳만) + core.hooksPath 미설정 시 .githooks 지정
  * - kit 은 core.hooksPath 를 소유하지 않는다: 기존 hooksPath(없으면 .githooks 생성)를 존중하고
  *   그 pre-commit 안의 마커 구간만 관리한다 — 블록 밖·다른 훅은 불가침.
  * - project-owned(config.mjs·plan-overrides·기존 CLAUDE.md·마커 밖)는 불가침. 롤백 = git.

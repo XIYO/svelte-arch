@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 48룰 (v4, steiger 흡수)
+# 감사 룰 매트릭스 — 49룰 (v4, steiger 흡수)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -13,12 +13,12 @@
 | `NO_LAYER_PUBLIC_API` | 계층 루트 | 계층 루트 index.ts (steiger 동명 룰) | error |
 | `NO_SHARED_MEGA_BARREL` | shared/ui·shared/lib | 통합 배럴 — 딥 임포트만 (FSD 공식 처방 = Vite 성능 가이드) | error |
 | `DEEP_IMPORT_INTO_SLICE` | 전체 | 타 slice 내부 파일 직접 import — public API(index) 경유 의무. shared는 반대로 딥 의무 | error |
-| `SEGMENT_UNKNOWN` | slice 내부 | ui·api·model·lib·config 외 폴더 (shared는 +vendor·model) | error |
+| `SEGMENT_UNKNOWN` | slice·shared·pages | slice 내 ui·api·model·lib·config 외 폴더 / shared 루트의 ui·vendor·lib·model·config 외 폴더 / 닫힌 pages 계층에 파일 존재 | error |
 | `UNMARKED_COMPONENT` | 전 `.svelte` | 글루·`.view`·`.live`·`.stories` 외 — **routes 콜로케이션 포함**, vendor 면제 | error |
 | `INSIGNIFICANT_SLICE` | sliced 계층 | 소비 파일 1개뿐인 slice → 콜로케이션 회귀 제안 (steiger 동명 룰) | warn |
 | `HEAVY_REEXPORT` | slice index | 재수출 12개 초과 — slice 분할 신호 | warn |
 
-## B군 — 품질 오버레이·클라 (21)
+## B군 — 품질 오버레이·클라 (22)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
@@ -42,7 +42,8 @@
 | `UNNAMED_PROPS_TYPE` | view·live | `$props()` 인라인 타입 — `type Props` 명명 필수 | error |
 | `UNDOCUMENTED_PROP` | shared/ui view | TSDoc 없는 prop (매니페스트 주입 품질) | warn |
 | `CALLBACK_NAME_STYLE` | view | 콜백 prop `on소문자` — camelCase `onXxx` | error |
-| `SET_PARTIAL_IMPORT` + `VENDOR_IMPORT` | 전체 | 세트 부분 구조분해(네임스페이스 의무) / `shared/vendor` 소비가 shared/ui 밖 | error |
+| `SET_PARTIAL_IMPORT` | 전체 | 세트 부품 부분 구조분해 — `import * as` 네임스페이스 의무 | error |
+| `VENDOR_IMPORT` | 전체 | `shared/vendor` 소비가 shared/ui 래핑 밖 | error |
 
 ## C군 — 서버 (11)
 
@@ -55,7 +56,7 @@
 | `REMOTE_VALUE_EXPORT` | remote | remote function(query/command/form/prerender) 외 값 export — 런타임 즉사 선제 차단. 타입은 합법 | error |
 | `SERVICE_SVELTEKIT_IMPORT` | service·repository | `$app/*`·`@sveltejs/kit`·`getRequestEvent` (`$env` 허용) | error |
 | `SCHEMA_VALUE_OUTSIDE_REPOSITORY` | 전체 | `.schema` 값 import가 repository·schema 밖 (시드 포함 예외 0 — type-only 자유) | error |
-| `CROSS_SLICE_SERVER_IMPORT` | server/<slice> | 타 server slice 값 import (shared 제외 — 둘째 호출자 시점에 shared로 이동) | error |
+| `CROSS_SLICE_SERVER_IMPORT` | server/<slice> | 타 server slice 값 import (shared·database·auth 인프라 slice 면제 — 둘째 호출자 시점에 shared로 이동) | error |
 | `ADAPTER_CONSUMER` | 전체 | `.adapter` 값 import가 service·repository·adapter 밖 | error |
 | `GUARD_OUTSIDE_BOUNDARY` | 전체 | `.guard` import가 remote·글루서버·endpoint·hooks 밖 | error |
 | `SLICE_NAME_PARITY` | server/<slice> | 대응하는 클라 slice명 부재 (entities 기준, shared·database·auth 면제) | warn |
@@ -64,8 +65,8 @@
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
-| `PAGE_SERVER_DATA_FETCH` | +page.server·+layout.server | service·repository·db 값 import — 가드·리디렉트·메타 전용 | error |
-| `ENDPOINT_THICK` | +server.ts | repository·schema·db 값 import — guard+service 경유 의무 | error |
+| `PAGE_SERVER_DATA_FETCH` | +page.server·+layout.server | service·repository·schema·adapter·db(database slice) 값 import — 가드·리디렉트·메타 전용 | error |
+| `ENDPOINT_THICK` | +server.ts | repository·schema·adapter·db(database slice) 값 import — guard+service 경유 의무 | error |
 
 ## E군 — 공용 (4)
 
@@ -87,6 +88,7 @@ export default {
 	layers: { pages: false },                 // pages 계층 개방 스위치
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '검색'],
 	allow: { crossSlice: [], liveOutsideGlue: [] }, // 이행기 전용 공개 부채 — 사유 주석 의무, 줄어들기만
+	heavyReexportMax: 12,                     // HEAVY_REEXPORT 임계 (slice index 재수출 상한)
 	rules: [ /* { code, desc, severity, kinds|where, pattern|check } — 승격 절차 5단계마다 +1 */ ]
 };
 ```

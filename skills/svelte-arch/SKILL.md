@@ -31,7 +31,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 **segment**: `ui/`(`.view`+`.live` 페어) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
 
-**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.live`(smart — remote 결합, 마크업 0) · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
+**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.live`(smart — remote 결합, 마크업 0) · `.stories` · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
 
 ## 배치 사다리 (pages first — 이 스킬의 심장)
 
@@ -50,7 +50,7 @@ entity의 ui에 live를 만들고 싶다 = widget 승격 신호(entities/ui는 v
 
 1. **몰라서 만든다** → `bun run arch:manifest`가 shared/ui API 전체 + `--slice <이름>`으로 관련 slice·서버 API·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(있으면 소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(48룰, steiger 흡수)이 커밋을 차단 (pre-commit)
+3. **그래도 만들면** → `bun run arch:audit`(49룰, steiger 흡수)이 커밋을 차단 (pre-commit)
 
 ## 프로토콜 — 작업 전 의무 실행
 
@@ -87,10 +87,10 @@ UI·서버 작업 감지
 
 | 필요한 것 | 파일 |
 |---|---|
-| 헌법 전문 — 공리·계층/segment/종별 카드·판정표 3종·2×2 매트릭스 | `references/constitution.md` |
+| 헌법 전문 — 공리·계층/segment/종별 카드·판정표 2종(상태 거주지·하강 판정례)·2×2 매트릭스 | `references/constitution.md` |
 | FSD 2.1 번역·용어 사전(업계 대응어)·svelte.config 수술 정본 | `references/fsd-guide.md` |
 | 배치 사다리·승격 관문 4테스트·강등·Rule of Two·해치 규율 | `references/discipline.md` |
-| 감사 룰 48 전량 (steiger 대응표 포함) | `references/audit-rules.md` |
+| 감사 룰 49 전량 (steiger 흡수분 인라인 표기) | `references/audit-rules.md` |
 | 매니페스트 출력 명세·추출 앵커·버전 체인 | `references/manifest-protocol.md` |
 | 기존 프로젝트 이행 플레이북 | `references/adoption.md` |
 | kit 설치·업데이트·소유권·semver | `references/kit.md` |
