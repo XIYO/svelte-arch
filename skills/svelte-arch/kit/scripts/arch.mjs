@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.1.0';
+const KIT_VERSION = '4.1.1';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -192,6 +192,30 @@ function buildGraph(files) {
 	const fileSet = new Map(files.map((f) => [f.rel, f]));
 	const barrels = new Map();
 	for (const f of files) if (f.kind === 'barrel') barrels.set(f.rel, parseBarrel(f, fileSet));
+	// star 재수출(export * from) 해석용 — 모듈이 export하는 이름 집합 (배럴 체인 재귀, 순환 가드)
+	const exportNamesCache = new Map();
+	function exportedNames(rel, seen = new Set()) {
+		if (exportNamesCache.has(rel)) return exportNamesCache.get(rel);
+		if (seen.has(rel)) return new Set();
+		seen.add(rel);
+		const f = fileSet.get(rel);
+		const names = new Set();
+		if (f) {
+			for (const m of f.content.matchAll(/^\s*export\s+(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function\*?|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+			for (const m of f.content.matchAll(/^\s*export\s+(?:type\s+)?\{([^}]*)\}/gm))
+				for (const raw of m[1].split(',')) {
+					const em = raw.trim().match(/^(?:type\s+)?(?:default\s+as\s+([\w$]+)|([\w$]+)(?:\s+as\s+([\w$]+))?)$/);
+					if (em) names.add(em[1] ?? em[3] ?? em[2]);
+				}
+			if (/^\s*export\s+default\b/m.test(f.content)) names.add('default');
+			for (const m of f.content.matchAll(/export\s+(?:type\s+)?\*\s+from\s+['"]([^'"]+)['"]/g)) {
+				const t = resolveSpec(m[1], rel, fileSet);
+				if (t) for (const n of exportedNames(t, seen)) names.add(n);
+			}
+		}
+		exportNamesCache.set(rel, names);
+		return names;
+	}
 	const edges = [];
 	const IMPORT_RE = /^\s*(import|export)\s+(type\s+)?([\s\S]*?)\s*from\s+['"]([^'"]+)['"]/;
 	for (const f of files) {
@@ -211,14 +235,29 @@ function buildGraph(files) {
 			if (!target || target === f.rel) { edges.push({ from: f, to: null, typeOnly, line: i + 1, spec, clause }); return; }
 			const tf = fileSet.get(target);
 			edges.push({ from: f, to: tf, typeOnly, line: i + 1, spec, clause });
-			// 배럴 투명화 — named import를 실파일 가상 엣지로 확장
+			// 배럴 투명화 — named import를 실파일 가상 엣지로 확장.
+			// star 재수출은 대상 모듈의 export 이름 조회로 해석하고, typeOnly는 지정자 단위
+			// (인라인 `type X`·`export type` 재수출 포함 — 같은 실파일로 값·타입이 섞이면 값 우선).
 			const bmap = barrels.get(target);
 			if (bmap) {
-				const names = [...(clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',')].map((s) => s.trim().replace(/\s+as\s+\w+$/, '').replace(/^type\s+/, '')).filter(Boolean);
-				const expand = clause.includes('* as') ? [...new Set([...bmap.values()].map((v) => v.target))] : names.map((n) => bmap.get(n)?.target).filter(Boolean);
-				for (const t2 of new Set(expand)) {
+				const raws = [...(clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',')].map((s) => s.trim()).filter(Boolean);
+				const expand = new Map(); // target rel → typeOnly
+				if (clause.includes('* as')) {
+					for (const v2 of bmap.values()) expand.set(v2.target, typeOnly);
+				} else {
+					for (const raw of raws) {
+						const inlineType = /^type\s/.test(raw);
+						const name = raw.replace(/^type\s+/, '').replace(/\s+as\s+[\w$]+$/, '');
+						let entry = bmap.get(name);
+						if (!entry) for (const v2 of bmap.values()) if (v2.star && exportedNames(v2.target).has(name)) { entry = v2; break; }
+						if (!entry) continue;
+						const eType = typeOnly || inlineType || !!entry.typeOnly;
+						expand.set(entry.target, expand.has(entry.target) ? expand.get(entry.target) && eType : eType);
+					}
+				}
+				for (const [t2, eType] of expand) {
 					const tf2 = fileSet.get(t2);
-					if (tf2 && tf2.rel !== f.rel) edges.push({ from: f, to: tf2, typeOnly, line: i + 1, spec, viaIndex: true });
+					if (tf2 && tf2.rel !== f.rel) edges.push({ from: f, to: tf2, typeOnly: eType, line: i + 1, spec, viaIndex: true });
 				}
 			}
 		});

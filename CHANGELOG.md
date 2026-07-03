@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.1.1 — 2026-07-04
+
+- fix(audit): 임포트 그래프의 배럴 투명화가 **star 재수출(`export * from`)을 관통하지 못하던 집행 구멍** — named import가 star로 재수출된 이름이면 가상 엣지가 생성되지 않아 그래프 기반 룰 전부(GLUE_LOGIC·REMOTE_IN_VIEW·LIVE_IMPORT_OUTSIDE_GLUE·CROSS_SLICE 등)가 침묵했다. slice public API 경유가 의무(딥 임포트 금지)인 좌표계에서 배럴 뒤가 안 보이면 감사가 무력화되므로 치명 — 대상 모듈의 export 이름 집합을 추출(배럴 체인 재귀·순환 가드)해 이름 단위로 해석한다.
+- fix(audit): 가상 엣지의 `typeOnly`가 문장 단위로만 판정되던 것을 **지정자 단위로 정밀화** — 인라인 `type X` 지정자와 배럴의 `export type {…} from` 재수출을 type-only로 인식(값·타입이 같은 실파일로 섞이면 값 우선). 값 import로 오인된 type 지정자가 REMOTE_IN_VIEW 등을 오탐하던 것 제거.
+
 ## 4.1.0 — 2026-07-04
 
 **plan 3단 이행 파이프라인** — 1차 기계(휴리스틱) · 2차 LLM(내용 판정) · 3차 해체(리팩토링). 휴리스틱이 특정 네이밍 관례에 과적합될 수 있다는 전제를 명시하고, 기계가 확신 못 하는 분류를 LLM 단계로 넘긴다.
