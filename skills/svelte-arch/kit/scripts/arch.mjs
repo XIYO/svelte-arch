@@ -8,17 +8,28 @@
  * 사용:
  *   bun scripts/arch.mjs manifest [--layer primitive] [--domain <d>] [--detail <Base>] [--json]
  *   bun scripts/arch.mjs audit    [--files <p...>] [--json]
+ *   bun scripts/arch.mjs analyze  [--json]           # 진화 신호 리포트 (승격 후보·고아·비대·커버리지)
+ *   bun scripts/arch.mjs new primitive <Name>
+ *   bun scripts/arch.mjs new section <domain> <Name> # dumb+live 페어 생성
+ *   bun scripts/arch.mjs new composite <domain> <Name>
+ *   bun scripts/arch.mjs new set <set> <Root> <Part...>  # 세트 폴더+부품+index.ts 배럴 자동 생성
  *   bun scripts/arch.mjs version
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, relative, basename, dirname } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '3.0.0';
+const KIT_VERSION = '3.1.0';
 const ROOT = process.cwd();
 const COMPONENTS = 'src/lib/components';
+const SELF_DIR = dirname(fileURLToPath(import.meta.url));
+// 설치본(.svelte-arch/templates)과 킷 원본(kit/scripts → ../templates) 양쪽 지원
+const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) =>
+	existsSync(d)
+);
 
 // ── config (project-owned 확장) ──────────────────────────────────────────
 const DEFAULT_CONFIG = {
@@ -664,11 +675,7 @@ async function structuralChecks(files, config, hatchOnly = false) {
 	return out;
 }
 
-async function runAudit(args, config) {
-	const filesArg = args.getList('--files');
-	let files = await collectFiles();
-	for (const f of files) f.lines = f.content.split('\n');
-
+async function collectViolations(files, config, filesArg = null) {
 	const rules = [...CORE_RULES, ...config.rules.map(normalizeConfigRule)];
 	const scope = filesArg?.length ? files.filter((f) => filesArg.some((t) => norm(t) === f.rel || norm(t).endsWith(f.rel))) : files;
 
@@ -690,6 +697,14 @@ async function runAudit(args, config) {
 	}
 	// 구조 검사: --files 모드에선 해치 중복만(전 파일 필요 검사라 전체 대상으로 수행하되 결과는 scope 무관 유지)
 	violations.push(...(await structuralChecks(files, config, !!filesArg?.length)));
+	return violations;
+}
+
+async function runAudit(args, config) {
+	const filesArg = args.getList('--files');
+	const files = await collectFiles();
+	for (const f of files) f.lines = f.content.split('\n');
+	const violations = await collectViolations(files, config, filesArg);
 
 	if (args.has('--json')) console.log(JSON.stringify(violations, null, 2));
 	else printAudit(violations);
@@ -714,6 +729,384 @@ function printAudit(violations) {
 	}
 	const e = violations.filter((x) => x.severity === 'error').length;
 	console.log(`\n총 \x1b[31m${e}\x1b[0m error, \x1b[33m${violations.length - e}\x1b[0m warning (kit v${KIT_VERSION})`);
+}
+
+// ── analyze — 진화 신호 리포트 (audit=위반, analyze=다음에 할 일) ─────────
+function jaccard(a, b) {
+	const A = new Set(a);
+	const B = new Set(b);
+	const inter = [...A].filter((x) => B.has(x)).length;
+	return inter / (A.size + B.size - inter);
+}
+
+async function runAnalyze(args, config) {
+	const files = await collectFiles();
+	for (const f of files) f.lines = f.content.split('\n');
+	const comps = files.filter((f) => ['primitive', 'composite', 'live'].includes(f.kind));
+	const consumers = buildConsumerMap(files);
+	const R = { kit: KIT_VERSION };
+
+	// 1) 종별·커버리지 통계
+	const prims = comps.filter((f) => f.kind === 'primitive');
+	const sections = comps.filter((f) => f.kind === 'composite' && baseOf(f.rel).endsWith('Section'));
+	const hasDoc = (f) => /<!--\s*@component/.test(f.content);
+	const hasStory = (f) => {
+		const base = baseOf(f.rel);
+		return files.some((x) => (x.kind === 'stories' || x.kind === 'spec') && baseOf(x.rel).replace(/\.svelte$/, '') === base);
+	};
+	let propsTotal = 0;
+	let propsDocumented = 0;
+	let irregular = [];
+	for (const f of prims) {
+		const p = extractProps(f.content);
+		if (!p) continue;
+		if (p.irregular) irregular.push(f.rel);
+		else {
+			propsTotal += p.members.length;
+			propsDocumented += p.members.filter((m) => m.doc).length;
+		}
+	}
+	R.stats = {
+		kinds: Object.fromEntries(['primitive', 'composite', 'live', 'glue', 'remote', 'service', 'repository'].map((k) => [k, files.filter((f) => f.kind === k).length])),
+		livePairCoverage: `${sections.filter((f) => comps.some((x) => x.kind === 'live' && baseOf(x.rel) === baseOf(f.rel) && dirname(x.rel) === dirname(f.rel))).length}/${sections.length} Section`,
+		componentDoc: `${comps.filter((f) => f.kind !== 'live' && hasDoc(f)).length}/${comps.filter((f) => f.kind !== 'live').length}`,
+		primitiveTsdoc: propsTotal ? `${propsDocumented}/${propsTotal} prop` : '-',
+		storyCoverage: `${prims.filter(hasStory).length}/${prims.length} primitive`
+	};
+
+	// 2) 고아·저소비 primitive
+	R.orphans = prims.filter((f) => (consumers.get(f.rel)?.size ?? 0) === 0).map((f) => baseOf(f.rel));
+	R.lowUse = prims.filter((f) => (consumers.get(f.rel)?.size ?? 0) === 1).map((f) => baseOf(f.rel));
+
+	// 3) 유사 이스케이프 해치 클러스터 (완전 동일은 audit 몫 — 여기선 유사 = variant 승격 후보)
+	const hatches = [];
+	for (const f of comps) {
+		if (!['primitive', 'composite'].includes(f.kind)) continue;
+		for (const m of f.content.matchAll(/\b([a-z][A-Za-z]*Class)=(?:"([^"]+)"|\{'([^']+)'\})/g)) {
+			const tokens = (m[2] ?? m[3]).split(/\s+/).filter(Boolean);
+			if (tokens.length < 4) continue;
+			hatches.push({ file: f.rel, line: f.content.slice(0, m.index).split('\n').length, prop: m[1], tokens });
+		}
+	}
+	const clusters = [];
+	const used = new Set();
+	for (let i = 0; i < hatches.length; i++) {
+		if (used.has(i)) continue;
+		const group = [hatches[i]];
+		for (let j = i + 1; j < hatches.length; j++) {
+			if (used.has(j) || hatches[j].prop !== hatches[i].prop) continue;
+			if (jaccard(hatches[i].tokens, hatches[j].tokens) >= 0.5) {
+				group.push(hatches[j]);
+				used.add(j);
+			}
+		}
+		if (new Set(group.map((g) => g.file)).size >= 2) clusters.push(group);
+	}
+	R.hatchClusters = clusters.map((g) => ({
+		prop: g[0].prop,
+		sites: g.map((s) => `${s.file}:${s.line}`),
+		hint: 'variant 승격 후보 — Rule of Two'
+	}));
+
+	// 4) live 비대 (로직은 *.svelte.ts 추출 처방)
+	R.fatLives = comps
+		.filter((f) => f.kind === 'live' && f.lines.length > 100)
+		.sort((a, b) => b.lines.length - a.lines.length)
+		.map((f) => `${f.rel} (${f.lines.length}줄)`);
+
+	// 5) composite 의 네이티브 요소 빈도 — primitive 부재 신호
+	const NATIVE = ['button', 'input', 'table', 'dialog', 'textarea', 'select', 'nav', 'progress'];
+	const nativeCount = Object.fromEntries(NATIVE.map((t) => [t, 0]));
+	for (const f of comps.filter((x) => x.kind === 'composite'))
+		for (const t of NATIVE) nativeCount[t] += (f.content.match(new RegExp(`<${t}\\b`, 'g')) ?? []).length;
+	R.nativeSignals = Object.entries(nativeCount)
+		.filter(([, n]) => n >= 5)
+		.sort((a, b) => b[1] - a[1])
+		.map(([t, n]) => `<${t}> ${n}회 — 대응 primitive 검토`);
+
+	// 6) 매니페스트 품질 부채
+	R.manifestQuality = {
+		irregularProps: irregular,
+		missingDoc: comps.filter((f) => f.kind !== 'live' && !hasDoc(f)).length
+	};
+
+	// 7) 감사 요약 (부채 잔고)
+	const violations = await collectViolations(files, config);
+	const err = violations.filter((v) => v.severity === 'error').length;
+	R.auditSummary = `${err} error / ${violations.length - err} warn`;
+
+	if (args.has('--json')) return console.log(JSON.stringify(R, null, 2)), 0;
+	const out = [`# arch-analyze · kit v${KIT_VERSION} · ${await readPkgName()}`, ''];
+	out.push(`종별: ${Object.entries(R.stats.kinds).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
+	out.push(`커버리지: live 페어 ${R.stats.livePairCoverage} · @component ${R.stats.componentDoc} · TSDoc ${R.stats.primitiveTsdoc} · 스토리 ${R.stats.storyCoverage}`);
+	out.push(`감사 잔고: ${R.auditSummary}`, '');
+	if (R.orphans.length) out.push(`⚠ 고아 primitive (소비 0): ${R.orphans.join(', ')} — 두 릴리스 연속이면 삭제 검토`);
+	if (R.lowUse.length) out.push(`저소비 primitive (소비 1): ${R.lowUse.join(', ')}`);
+	for (const c of R.hatchClusters) out.push('', `🔺 유사 해치 클러스터 (${c.prop}) — ${c.hint}`, ...c.sites.map((s) => `   ${s}`));
+	if (R.fatLives.length) out.push('', '🔺 live 비대 (>100줄 — 로직을 *.svelte.ts 로 추출):', ...R.fatLives.map((s) => `   ${s}`));
+	if (R.nativeSignals.length) out.push('', '🔺 네이티브 요소 다빈도 (primitive 부재 신호):', ...R.nativeSignals.map((s) => `   ${s}`));
+	if (R.manifestQuality.irregularProps.length)
+		out.push('', `🔺 Props 비정형 ${R.manifestQuality.irregularProps.length}건 (인라인 객체 타입 → 별칭 추출):`, ...R.manifestQuality.irregularProps.map((s) => `   ${s}`));
+	console.log(out.join('\n'));
+	return 0;
+}
+
+// ── new — 스캐폴드 생성기 (앵커 선재·Base 전역 유일 강제·세트 배럴 자동) ──
+async function loadTemplate(name) {
+	if (!TEMPLATE_DIR) throw new Error('템플릿 디렉토리를 찾지 못함 — init 재실행으로 .svelte-arch/templates 복원');
+	return readFile(join(TEMPLATE_DIR, name), 'utf-8');
+}
+
+async function assertUniqueBase(base) {
+	for await (const p of walk(join(ROOT, COMPONENTS))) {
+		if (p.endsWith('.svelte') && baseOf(norm(relative(ROOT, p))) === base) {
+			console.error(`✗ Base '${base}' 이미 존재: ${norm(relative(ROOT, p))} — Base 는 레포 전역 유일`);
+			process.exit(1);
+		}
+	}
+}
+
+const isPascal = (s) => /^[A-Z][A-Za-z0-9]*$/.test(s);
+
+async function seedDirReadme(dir, role) {
+	if (existsSync(join(dir, 'README.md'))) return;
+	try {
+		const t = await loadTemplate('README.template.md');
+		await writeFile(join(dir, 'README.md'), t.replaceAll('{DIR}', norm(relative(ROOT, dir))).replaceAll('{역할 한 줄}', role), 'utf-8');
+	} catch {
+		/* 템플릿 없으면 생략 — audit 이 알림 */
+	}
+}
+
+async function runNew(positionals) {
+	const [kind, ...rest] = positionals;
+	const created = [];
+	const write = async (rel, content) => {
+		const abs = join(ROOT, rel);
+		if (existsSync(abs)) {
+			console.error(`✗ 이미 존재: ${rel}`);
+			process.exit(1);
+		}
+		await mkdir(dirname(abs), { recursive: true });
+		await writeFile(abs, content, 'utf-8');
+		created.push(rel);
+	};
+
+	if (kind === 'primitive') {
+		const [name] = rest;
+		if (!name || !isPascal(name)) return console.error('사용법: new primitive <PascalName>'), 1;
+		await assertUniqueBase(name);
+		const t = await loadTemplate('Component.primitive.svelte');
+		await write(`${COMPONENTS}/primitive/${name}.primitive.svelte`, t.replaceAll('Component', name));
+	} else if (kind === 'section' || kind === 'composite') {
+		const [domain, rawName] = rest;
+		if (!domain || !rawName || !isPascal(rawName)) return console.error(`사용법: new ${kind} <domain> <PascalName>`), 1;
+		const name = kind === 'section' && !rawName.endsWith('Section') ? `${rawName}Section` : rawName;
+		await assertUniqueBase(name);
+		const dir = join(ROOT, COMPONENTS, domain);
+		await mkdir(dir, { recursive: true });
+		await seedDirReadme(dir, `${domain} 도메인 조립 (dumb + live 페어)`);
+		const dumb = await loadTemplate('ScreenSection.composite.svelte');
+		await write(`${COMPONENTS}/${domain}/${name}.composite.svelte`, dumb.replaceAll('ScreenSection', name));
+		if (kind === 'section') {
+			const live = await loadTemplate('ScreenSection.live.svelte');
+			await write(`${COMPONENTS}/${domain}/${name}.live.svelte`, live.replaceAll('ScreenSection', name));
+		}
+	} else if (kind === 'set') {
+		const [setName, ...parts] = rest;
+		if (!setName || !/^[a-z][a-z0-9-]*$/.test(setName) || parts.length < 2 || !parts.every(isPascal))
+			return console.error('사용법: new set <kebab-set> <Root> <Part...> (부품 2개 이상, Root 포함 권장)'), 1;
+		const pascal = setName.replace(/(^|-)([a-z])/g, (_, __, c) => c.toUpperCase());
+		const t = await loadTemplate('SetPart.primitive.svelte');
+		const dir = join(ROOT, COMPONENTS, 'primitive', setName);
+		for (const part of parts) {
+			const base = `${pascal}${part}`;
+			await assertUniqueBase(base);
+			await write(`${COMPONENTS}/primitive/${setName}/${base}.primitive.svelte`, t.replaceAll('SetName', pascal).replaceAll('PartName', part));
+		}
+		// 세트 배럴 — 재수출만·같은 폴더만 (SET_BARREL_LEAK 규칙과 정합)
+		const index = parts.map((p) => `export { default as ${p} } from './${pascal}${p}.primitive.svelte';`).join('\n') + '\n';
+		await write(`${COMPONENTS}/primitive/${setName}/index.ts`, index);
+		await seedDirReadme(dir, `${pascal} 세트 (compound) — import * as ${pascal} 네임스페이스 소비`);
+	} else {
+		console.error('사용법: new <primitive|section|composite|set> …');
+		return 1;
+	}
+
+	console.log('✓ 생성됨:');
+	for (const c of created) console.log(`  · ${c}`);
+	console.log('\n다음: @component 역할 1행·TSDoc 채우기 → bun run arch:audit');
+	return 0;
+}
+
+// ── plan — 기존 프로젝트 이행 플랜 산출·적용 (전수 검사 → 표 → --apply) ──
+// 동의 UX 는 도구가 아니라 에이전트 몫: 플랜을 사용자에게 보여주고 "이렇게 옮기겠습니다.
+// 진행할까요?" 승인을 받은 뒤에만 --apply 를 실행한다 (스킬 워크플로우 규범).
+function pjoin(...parts) {
+	const out = [];
+	for (const seg of parts.join('/').split('/')) {
+		if (seg === '' || seg === '.') continue;
+		if (seg === '..') out.pop();
+		else out.push(seg);
+	}
+	return out.join('/');
+}
+
+function planTargetFor(rel) {
+	let r = norm(rel);
+	if (!r.startsWith(`${COMPONENTS}/`)) return null;
+	if (r.includes(`${COMPONENTS}/ui/`)) return null; // vendor 불가침
+	// composite/ 껍데기 해체
+	let to = r.replace(`${COMPONENTS}/composite/`, `${COMPONENTS}/`);
+	// 접미사 부여 (.svelte 중 무표만 — live/stories/기존 마킹 유지)
+	const b = basename(to);
+	if (b.endsWith('.svelte') && !/\.(primitive|composite|live|stories)\.svelte$/.test(b) && !b.startsWith('+')) {
+		const marked = to.includes(`${COMPONENTS}/primitive/`)
+			? b.replace(/\.svelte$/, '.primitive.svelte')
+			: b.replace(/\.svelte$/, '.composite.svelte');
+		to = join(dirname(to), marked);
+	}
+	to = norm(to);
+	return to === r ? null : to;
+}
+
+async function runPlan(args) {
+	// 1) 이동·리네임 매핑 (components 트리 전체 — .ts·.md 부속 포함)
+	const moves = [];
+	const deletes = [];
+	if (!existsSync(join(ROOT, COMPONENTS))) return console.error(`✗ ${COMPONENTS} 없음`), 2;
+	for await (const p of walk(join(ROOT, COMPONENTS))) {
+		const rel = norm(relative(ROOT, p));
+		if (basename(rel) === 'index.ts') {
+			const isSet = new RegExp(`^${COMPONENTS}/primitive/[^/]+/index\\.ts$`).test(rel);
+			if (!isSet) {
+				deletes.push(rel); // 비세트 배럴 — 소비처는 딥 임포트로 치환됨
+				continue;
+			}
+		}
+		const to = planTargetFor(rel);
+		if (to) moves.push({ from: rel, to });
+	}
+	// 대상 경로가 이미 존재하는 이동은 건너뜀 (자동 덮어쓰기 금지 — 수동 병합 대상)
+	const skipped = moves.filter((m) => existsSync(join(ROOT, m.to)));
+	const applied = moves.filter((m) => !existsSync(join(ROOT, m.to)));
+	moves.length = 0;
+	moves.push(...applied);
+	const map = new Map(moves.map((m) => [m.from, m.to]));
+
+	// 2) 임포트 재작성 대상 집계 (배럴 named / 절대 딥 / 상대)
+	const files = await collectFiles();
+	const BARREL_RE = /import\s*\{([^}]+)\}\s*from\s*(['"])\$lib\/components\/primitive\2\s*;?/g;
+	const subOf = (rel) => rel.slice(`${COMPONENTS}/`.length);
+	function rewriteContent(content, oldRel, newRel) {
+		let out = content;
+		// (a) 배럴 named import → 새 경로 딥 임포트
+		out = out.replace(BARREL_RE, (full, clause) => {
+			const indent = full.match(/^[ \t]*/)?.[0] ?? '';
+			return clause
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean)
+				.map((n) => `${indent}import ${n} from '$lib/components/primitive/${n}.primitive.svelte';`)
+				.join('\n')
+				.trimStart();
+		});
+		// (b) 절대 딥 스펙 치환
+		for (const [f, t] of map) out = out.replaceAll(`$lib/components/${subOf(f)}`, `$lib/components/${subOf(t)}`);
+		// (c) 상대 스펙 — 옛 위치 기준 해석 → 새 위치 기준 재계산
+		out = out.replace(/from\s*(['"])(\.[^'"]+)\1/g, (full, q, spec) => {
+			const targetOld = pjoin(dirname(oldRel), spec);
+			const targetNew = map.get(targetOld);
+			if (!targetNew) return full;
+			const myNewDir = dirname(newRel ?? oldRel);
+			const rewritten =
+				norm(dirname(targetNew)) === norm(myNewDir)
+					? `./${basename(targetNew)}`
+					: `$lib/components/${subOf(targetNew)}`;
+			return `from ${q}${rewritten}${q}`;
+		});
+		return out;
+	}
+	let rewriteFiles = 0;
+	for (const f of files) {
+		const newSelf = map.get(f.rel) ?? f.rel;
+		if (rewriteContent(f.content, f.rel, newSelf) !== f.content) rewriteFiles++;
+	}
+
+	// 3) 플랜 출력
+	const apply = args.has('--apply');
+	if (args.has('--json') && !apply) {
+		console.log(JSON.stringify({ kit: KIT_VERSION, moves, deletes, rewriteFiles }, null, 2));
+		return 0;
+	}
+	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동/리네임 ${moves.length} · 배럴 삭제 ${deletes.length} · 임포트 재작성 ${rewriteFiles}파일\n`);
+	const byGroup = Map.groupBy(moves, (m) => subOf(m.to).split('/')[0]);
+	for (const [g, list] of [...byGroup].sort()) {
+		console.log(`## ${g} (${list.length})`);
+		const show = args.has('--full') ? list : list.slice(0, 6);
+		for (const m of show) console.log(`  ${subOf(m.from)}  →  ${subOf(m.to)}`);
+		if (list.length > show.length) console.log(`  … ${list.length - show.length}건 더 (--full)`);
+	}
+	for (const d of deletes) console.log(`## 삭제(배럴): ${d}`);
+	for (const s of skipped) console.log(`## ⚠ 건너뜀(대상 존재 — 수동 병합): ${subOf(s.from)} ↛ ${subOf(s.to)}`);
+
+	if (!apply) {
+		console.log(`\n실행 전 확인 — 적용은: bun run arch:plan -- --apply  (완전히 깨끗한 작업트리 필수, 롤백=git)`);
+		return 0;
+	}
+
+	// 4) 적용 게이트 — 구조 변경이므로 staged/unstaged 변경이 1개라도 있으면 거부 (강행 플래그 없음)
+	try {
+		const dirty = execSync('git status --porcelain', { cwd: ROOT }).toString().trim();
+		if (dirty) {
+			console.error(`✗ 거부 — 작업트리에 변경 ${dirty.split('\n').length}개 존재. 구조 이행은 완전히 깨끗한 트리에서만:`);
+			console.error(dirty.split('\n').slice(0, 8).map((l) => `   ${l}`).join('\n'));
+			console.error(`   → 커밋 또는 스태시 후 재실행하세요.`);
+			return 1;
+		}
+	} catch {
+		console.error('✗ 거부 — git 저장소가 아님. plan --apply 는 git 이 롤백 수단이라 필수.');
+		return 1;
+	}
+
+	// 5) 적용 — 이동 → 삭제 → 임포트 재작성 (멱등: 재실행 시 이동 대상 0)
+	const { rename, unlink } = await import('node:fs/promises');
+	for (const m of moves) {
+		await mkdir(join(ROOT, dirname(m.to)), { recursive: true });
+		await rename(join(ROOT, m.from), join(ROOT, m.to));
+	}
+	for (const d of deletes) await unlink(join(ROOT, d));
+	// 이동 후 남은 빈 디렉토리(구 composite/<d>/ 등) 상향식 제거
+	const { rmdir } = await import('node:fs/promises');
+	async function pruneEmpty(dir) {
+		let entries;
+		try {
+			entries = await readdir(dir, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const e of entries) if (e.isDirectory()) await pruneEmpty(join(dir, e.name));
+		try {
+			if ((await readdir(dir)).length === 0) await rmdir(dir);
+		} catch {
+			/* 사용 중이면 유지 */
+		}
+	}
+	await pruneEmpty(join(ROOT, COMPONENTS, 'composite'));
+	let rewritten = 0;
+	const deleteSet = new Set(deletes);
+	for (const f of files) {
+		if (deleteSet.has(f.rel)) continue; // 삭제된 배럴을 재작성으로 되살리지 않기
+		const newSelf = map.get(f.rel) ?? f.rel;
+		const next = rewriteContent(f.content, f.rel, newSelf);
+		if (next !== f.content) {
+			await writeFile(join(ROOT, newSelf), next, 'utf-8');
+			rewritten++;
+		}
+	}
+	console.log(`\n✓ 적용 완료 — 이동 ${moves.length} · 삭제 ${deletes.length} · 재작성 ${rewritten}파일`);
+	console.log(`다음: svelte-check(bun run check 등) → bun run arch:audit → git diff 리뷰 → 커밋`);
+	return 0;
 }
 
 // ── 엔트리 ───────────────────────────────────────────────────────────────
@@ -750,9 +1143,13 @@ async function main() {
 	}
 	const config = await loadConfig();
 	const args = parseArgs(rest);
+	const positionals = rest.filter((a) => !a.startsWith('--'));
 	if (cmd === 'manifest') return runManifest(args, config);
 	if (cmd === 'audit') return runAudit(args, config);
-	console.error('사용법: arch.mjs <manifest|audit|version> [옵션]');
+	if (cmd === 'analyze') return runAnalyze(args, config);
+	if (cmd === 'new') return runNew(positionals);
+	if (cmd === 'plan') return runPlan(args);
+	console.error('사용법: arch.mjs <manifest|audit|analyze|new|plan|version> [옵션]');
 	return 2;
 }
 

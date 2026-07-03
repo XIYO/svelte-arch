@@ -79,6 +79,13 @@ await mkdir(join(ROOT, '.svelte-arch/hooks'), { recursive: true });
 await copyFile(join(KIT, 'scripts/arch.mjs'), join(ROOT, '.svelte-arch/arch.mjs'));
 done.push(`.svelte-arch/arch.mjs (kit v${KIT_VERSION})`);
 
+// 템플릿 동봉 — arch:new 생성기가 오프라인(플러그인 부재 환경·CI)에서도 동작
+await mkdir(join(ROOT, '.svelte-arch/templates'), { recursive: true });
+for (const e of await readdir(join(KIT, 'templates'))) {
+	await copyFile(join(KIT, 'templates', e), join(ROOT, '.svelte-arch/templates', e));
+}
+done.push('.svelte-arch/templates (arch:new 생성기용)');
+
 if (existsSync(join(ROOT, '.git'))) {
 	await copyFile(join(KIT, 'githooks/pre-commit'), join(ROOT, '.svelte-arch/hooks/pre-commit'));
 	try {
@@ -105,7 +112,10 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 	pkg.scripts ??= {};
 	const want = {
 		'arch:manifest': 'bun .svelte-arch/arch.mjs manifest',
-		'arch:audit': 'bun .svelte-arch/arch.mjs audit'
+		'arch:audit': 'bun .svelte-arch/arch.mjs audit',
+		'arch:analyze': 'bun .svelte-arch/arch.mjs analyze',
+		'arch:new': 'bun .svelte-arch/arch.mjs new',
+		'arch:plan': 'bun .svelte-arch/arch.mjs plan'
 	};
 	let changed = false;
 	for (const [k, v] of Object.entries(want)) {
@@ -122,7 +132,7 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 	}
 	if (changed) {
 		await writeFile(p, JSON.stringify(pkg, null, indent) + '\n', 'utf-8');
-		done.push('package.json scripts (arch:manifest·arch:audit)');
+		done.push('package.json scripts (arch:manifest·audit·analyze·new·plan)');
 	}
 }
 
@@ -183,9 +193,36 @@ async function* dirs(d) {
 	done.push('CLAUDE.md 마커 블록 (블록 구간만 kit 관리)');
 }
 
+// ── 기존 구조 감지 (무표 .svelte 존재 여부) ──────────────────────────────
+let legacyCount = 0;
+{
+	const compRoot = join(ROOT, 'src/lib/components');
+	if (existsSync(compRoot)) {
+		const scan = async (d) => {
+			for (const e of await readdir(d, { withFileTypes: true })) {
+				const p = join(d, e.name);
+				if (e.isDirectory()) {
+					if (e.name !== 'ui') await scan(p);
+				} else if (
+					e.name.endsWith('.svelte') &&
+					!/\.(primitive|composite|live|stories)\.svelte$/.test(e.name)
+				)
+					legacyCount++;
+			}
+		};
+		await scan(compRoot);
+	}
+}
+
 // ── 요약 ─────────────────────────────────────────────────────────────────
 log(`\n✓ arch kit v${KIT_VERSION} 설치/업데이트 완료 → ${norm(ROOT)}`);
 for (const d of done) log(`  · ${d}`);
+if (legacyCount > 0) {
+	log(`\n⚠ 기존(무표) 컴포넌트 ${legacyCount}개 감지 — 표준 이행이 필요합니다.`);
+	log(`  ① bun run arch:plan          # 전수 검사 → 이행 플랜 산출 (이동·리네임·임포트 치환)`);
+	log(`  ② 플랜을 검토·승인한 뒤에만: bun run arch:plan -- --apply`);
+	log(`  (에이전트 규범: 플랜을 사용자에게 보여주고 "이렇게 옮기겠습니다. 진행할까요?" 승인 필수)`);
+}
 log(`\n다음 단계:`);
 log(`  1. bun run arch:audit        # baseline 위반 수 확인 (기존 프로젝트면 부채 잔고 박제)`);
 log(`  2. git diff 리뷰 → 커밋: chore(arch): kit v${KIT_VERSION} 설치`);

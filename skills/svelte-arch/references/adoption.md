@@ -2,31 +2,24 @@
 
 > 신규 프로젝트는 kit 설치(kit.md) + 헌법대로 시작하면 끝. 이 문서는 **이미 코드가 쌓인 프로젝트**의 무중단 이행 순서. 각 단계 = 독립 커밋(리뷰·bisect 보존), 전부 기계 변환 + `svelte-check` 검증.
 
-## 0. 스캔 (변경 0)
+## 0. kit 설치 (kit.md — init 한 명령)
+
+- init이 arch.mjs·config·훅·package scripts·README 씨앗·마커 블록을 깐다. 무표 컴포넌트가 있으면 init이 이행 필요를 알린다.
+- 전체 감사 baseline 수를 박제(부채 잔고). pre-commit은 `--files`라 도입 첫날부터 작동 — 손대는 파일부터 점진 정화.
+
+## 1. 전수 검사 → 플랜 제시 → 동의 (`arch:plan`)
 
 ```bash
-find src/lib/components -name '*.svelte' | sort                # 전수 목록
-grep -rn "from '\$lib/data" src/lib/components --include='*.svelte' | grep -v '\.live\.' | grep -v 'import type'   # dumb 위반
-grep -rn "components/composite\|components/ui" src --include='*.svelte'                                            # 경계 위반
+bun run arch:plan            # 전수 검사: 접미사 부여·composite/ 해체·배럴 폐기·임포트 재작성 규모를 표로
+bun run arch:analyze         # 보조: 중복·승격 후보·고아 등 진화 신호
 ```
 
-산출: ① 파일→종별 매핑표(결정트리로 분류) ② 위반 목록 ③ 손구현 중복 패턴 순위(복붙 횟수순 — 승격 후보).
+- **에이전트 규범**: 플랜을 사용자에게 표로 보여주고 **"디렉토리 체계를 표준대로 이렇게 옮기겠습니다. 진행할까요?"**를 반드시 묻는다. 승인 없이 적용 금지.
 
-## 1. 접미사 리네임 + 트리 개편 (코드모드, 이동·리네임만)
+## 2. 적용 (`arch:plan -- --apply`)
 
-- 매핑표대로 `.primitive/.composite/.live` 접미사 부여 + `composite/` 껍데기 해체(도메인 폴더 루트 승격) + 임포트 경로 일괄 치환.
-- **코드 수정과 섞지 않는다** — 순수 rename/move 커밋이어야 git 이력·리뷰가 산다.
-- 검증: `svelte-check` 0 신규 에러.
-
-## 2. 배럴 폐지 (코드모드)
-
-- 선반/도메인 배럴 import → 딥 임포트 확장, index.ts 삭제 (세트 폴더 제외).
-- named 타입은 정의 파일에서: `import SelectMenu, { type SelectOption } from '…/SelectMenu.primitive.svelte'`.
-
-## 3. kit 설치 (kit.md 절차)
-
-- arch.mjs·config·훅·package scripts·README 씨앗·마커 블록.
-- 전체 감사 baseline 수를 박제(부채 잔고). pre-commit은 `--files`라 도입 첫날부터 작동 — 손대는 파일부터 점진 정화.
+- 승인 후 실행 — 이동·리네임·비세트 배럴 삭제·임포트 재작성(배럴 named→딥, 절대·상대 스펙 갱신)을 한 번에. 코드 로직 수정과 섞이지 않는 순수 구조 커밋.
+- 검증: `svelte-check` 0 신규 에러 + `arch:audit`(UNMARKED·NO_BARREL 계열 소멸 확인) → diff 리뷰 → 커밋.
 
 ## 4. 앵커 보강 (점진)
 
