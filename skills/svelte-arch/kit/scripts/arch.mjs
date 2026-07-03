@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.1.1';
+const KIT_VERSION = '4.1.2';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -217,22 +217,24 @@ function buildGraph(files) {
 		return names;
 	}
 	const edges = [];
-	const IMPORT_RE = /^\s*(import|export)\s+(type\s+)?([\s\S]*?)\s*from\s+['"]([^'"]+)['"]/;
+	// 문장 단위 매칭 — 여러 줄 import(포매터 개행)도 그래프에 잡히도록 content 전체를 스캔.
+	// clause 문자 클래스가 식별자·중괄호·콤마·공백만 허용해 `export const x = 1` 등 from 없는 문장을 넘어 삼키지 않는다.
+	const IMPORT_RE = /^[ \t]*(import|export)\s+(type\s+)?([\w$*,{}\s]+?)\s+from\s+['"]([^'"]+)['"]/gm;
 	for (const f of files) {
 		f.lines.forEach((line, i) => {
-			const m = line.match(IMPORT_RE);
-			if (!m) {
-				const side = line.match(/^\s*import\s+['"]([^'"]+)['"]/); // side-effect import
-				if (side) {
-					const t = resolveSpec(side[1], f.rel, fileSet);
-					if (t && t !== f.rel) edges.push({ from: f, to: fileSet.get(t), typeOnly: false, line: i + 1, spec: side[1] });
-				}
-				return;
+			const side = line.match(/^\s*import\s+['"]([^'"]+)['"]/); // side-effect import
+			if (side) {
+				const t = resolveSpec(side[1], f.rel, fileSet);
+				if (t && t !== f.rel) edges.push({ from: f, to: fileSet.get(t), typeOnly: false, line: i + 1, spec: side[1] });
 			}
-			const [, , typeKw, clause, spec] = m;
+		});
+		for (const m of f.content.matchAll(IMPORT_RE)) {
+			const i = f.content.slice(0, m.index).split('\n').length - 1; // 문장 시작 라인(0-based)
+			const [, , typeKw, clauseRaw, spec] = m;
+			const clause = clauseRaw.replace(/\s+/g, ' ').trim();
 			const typeOnly = !!typeKw;
 			const target = resolveSpec(spec, f.rel, fileSet);
-			if (!target || target === f.rel) { edges.push({ from: f, to: null, typeOnly, line: i + 1, spec, clause }); return; }
+			if (!target || target === f.rel) { edges.push({ from: f, to: null, typeOnly, line: i + 1, spec, clause }); continue; }
 			const tf = fileSet.get(target);
 			edges.push({ from: f, to: tf, typeOnly, line: i + 1, spec, clause });
 			// 배럴 투명화 — named import를 실파일 가상 엣지로 확장.
@@ -260,7 +262,7 @@ function buildGraph(files) {
 					if (tf2 && tf2.rel !== f.rel) edges.push({ from: f, to: tf2, typeOnly: eType, line: i + 1, spec, viaIndex: true });
 				}
 			}
-		});
+		}
 	}
 	return { edges, fileSet, barrels };
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1.2 — 2026-07-04
+
+- fix(audit): 임포트 그래프가 **여러 줄 import 문을 통째로 놓치던 집행 구멍** — 라인 단위 정규식이라 포매터가 개행한 `import Default, {\n type X\n} from '…'` 문이 그래프에 안 잡혀, 그 임포트에 걸리는 룰 전부(DEEP·CROSS_SLICE·CROSS_SLICE_SERVER·REMOTE_SKIPS_SERVICE 등)가 침묵했다. prettier 기본 printWidth에서 지정자 3개 이상이면 개행되므로 실전 코드의 상당수가 감사 밖이었던 치명 결함 — content 전체 문장 단위 매칭으로 교체(clause 문자 클래스를 식별자·중괄호·콤마·공백으로 한정해 `export const x = 1` 등 from 없는 문장을 넘어 삼키지 않음, 위반 라인 번호 = 문장 시작 라인).
+
 ## 4.1.1 — 2026-07-04
 
 - fix(audit): 임포트 그래프의 배럴 투명화가 **star 재수출(`export * from`)을 관통하지 못하던 집행 구멍** — named import가 star로 재수출된 이름이면 가상 엣지가 생성되지 않아 그래프 기반 룰 전부(GLUE_LOGIC·REMOTE_IN_VIEW·LIVE_IMPORT_OUTSIDE_GLUE·CROSS_SLICE 등)가 침묵했다. slice public API 경유가 의무(딥 임포트 금지)인 좌표계에서 배럴 뒤가 안 보이면 감사가 무력화되므로 치명 — 대상 모듈의 export 이름 집합을 추출(배럴 체인 재귀·순환 가드)해 이름 단위로 해석한다.
