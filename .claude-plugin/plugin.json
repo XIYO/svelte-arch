@@ -1,7 +1,7 @@
 {
 	"name": "svelte-arch",
 	"description": "SvelteKit 풀스택 파일 종별 아키텍처 표준 + 프로젝트 주입 킷 (.primitive/.composite/.live 전면 마킹 · 실행형 매니페스트 · 감사 · init 설치기)",
-	"version": "3.1.0",
+	"version": "3.1.1",
 	"author": {
 		"name": "XIYO"
 	},

@@ -22,7 +22,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '3.1.0';
+const KIT_VERSION = '3.1.1';
 const ROOT = process.cwd();
 const COMPONENTS = 'src/lib/components';
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -977,6 +977,7 @@ async function runPlan(args) {
 	if (!existsSync(join(ROOT, COMPONENTS))) return console.error(`✗ ${COMPONENTS} 없음`), 2;
 	for await (const p of walk(join(ROOT, COMPONENTS))) {
 		const rel = norm(relative(ROOT, p));
+		if (rel.includes(`${COMPONENTS}/ui/`)) continue; // vendor 불가침 — 이동·삭제 대상 아님
 		if (basename(rel) === 'index.ts') {
 			const isSet = new RegExp(`^${COMPONENTS}/primitive/[^/]+/index\\.ts$`).test(rel);
 			if (!isSet) {
