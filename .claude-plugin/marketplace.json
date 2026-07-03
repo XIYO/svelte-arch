@@ -1,0 +1,13 @@
+{
+	"name": "svelte-arch",
+	"owner": {
+		"name": "XIYO"
+	},
+	"plugins": [
+		{
+			"name": "svelte-arch",
+			"source": "./",
+			"description": "SvelteKit 풀스택 파일 종별 아키텍처 표준 + 프로젝트 주입 킷 — 파일명이 역할을 선언하고, 실행형 매니페스트가 컴포넌트 메타데이터를 LLM에 주입해 중복 생성을 차단한다."
+		}
+	]
+}
