@@ -1,8 +1,8 @@
-<!-- ScreenSection 데이터 배선 — 마크업 0, 로직이 자라면 *.svelte.ts 로 추출 -->
+<!-- SliceSection 데이터 배선 — 마크업 0, 로직이 자라면 ../model/*.svelte.ts 로 추출 -->
 <script lang="ts">
-	import { getItems, removeItem } from '$lib/data/example.remote';
-	import EmptyState from '$lib/components/primitive/EmptyState.primitive.svelte';
-	import ScreenSection from './ScreenSection.composite.svelte';
+	import { getItems, removeItem } from '../api/example.remote';
+	import EmptyState from '@/shared/ui/EmptyState.view.svelte';
+	import SliceSection from './SliceSection.view.svelte';
 
 	const items = getItems(); // remote 는 최상위에서 — $effect 안 호출 금지(무한루프)
 
@@ -13,10 +13,10 @@
 </script>
 
 <svelte:boundary>
-	<ScreenSection items={items.current} onDelete={handleDelete} />
+	<SliceSection items={items.current} onDelete={handleDelete} />
 
 	{#snippet pending()}
-		<ScreenSection items={undefined} onDelete={handleDelete} />
+		<SliceSection items={undefined} onDelete={handleDelete} />
 	{/snippet}
 
 	{#snippet failed(error, reset)}

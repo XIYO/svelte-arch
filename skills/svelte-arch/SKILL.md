@@ -1,104 +1,107 @@
 ---
 name: svelte-arch
-description: SvelteKit 풀스택 파일 종별 아키텍처 표준 + 프로젝트 주입 킷. 모든 파일이 이름으로 역할을 선언하고(.primitive/.composite/.live/.remote/.service/.repository…), 규칙은 종별 단위로만 걸리며, 실행형 매니페스트(arch:manifest)가 최신 컴포넌트 메타데이터를 LLM에 주입해 중복 생성을 차단한다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service 파일을 만들거나 배치를 판단할 때, "컴포넌트 체계화"·"아키텍처 표준"·"네이밍 규칙"·"컴포넌트 정리/리팩토링" 요청 시, UI 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치(arch kit)하거나 kit 버전을 업데이트할 때 반드시 사용한다.
+description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. FSD 계층(app/widgets/features/entities/shared)·slice·segment 표준 구조를 SvelteKit 방언(공식 svelte.config 수술)으로 완역해 안내·설치·감사하고, FSD가 비워둔 절반(서버 계층 remote→service→repository, dumb(view)/smart(live) 분리, 실행형 매니페스트 발견성, 클래스 배열 규약)을 자체 규범으로 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service 파일을 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"네이밍 규칙"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치(arch kit)하거나 kit 버전을 업데이트할 때 반드시 사용한다.
 ---
 
-# SvelteKit 풀스택 파일 종별 아키텍처 (`svelte-arch`)
+# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v4)
 
-한 문장 정의: **파일명이 역할을 선언하고, 규칙은 종별에만 걸리고, 발견성은 실행형 매니페스트가 전담하는** SvelteKit 표준. 목적은 하나 — 같은 것을 두 번 만들지 않게 하고, 팀(사람+에이전트)이 실수할 자리를 없앤다.
+한 문장 정의: **FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/live 규율·발견성)을 자체 규범으로 채우는** 아키텍처 어드바이저 + 주입 킷. 목적은 하나 — 같은 것을 두 번 만들지 않게 하고, 팀(사람+에이전트)이 실수할 자리를 없앤다.
 
-## 룰 주입 = 전부 프로젝트 로컬 (머신 글로벌 주입 0)
+## 4단 주소 체계 — 모든 파일은 주소로 역할을 선언한다
 
-**원칙: 규칙은 레포에 커밋된 것만 존재한다.** 머신 글로벌 룰 주입은 금지 — 머신마다 드리프트하고, CI·협업자가 못 받고, 로컬/글로벌 이원 관리가 된다. 이 스킬 자체는 에이전트의 지식·배포 채널일 뿐, 프로젝트에 규칙을 주입하는 건 오직 kit 설치물이다:
-
-| 채널 (전부 레포 커밋) | 로드·발동 시점 | 내용 |
-|---|---|---|
-| 루트 CLAUDE.md **마커 블록** | 그 프로젝트 **매 세션 자동** | 상시 트리거 카드 — 종별 선언·매니페스트 의무·금칙 요약·README 게이트 |
-| 각 디렉토리 `README.md` | 게이트 지시로 편집 전 필독 | 폴더 로컬 규칙 서술 |
-| `.svelte-arch/`(CLI·config·훅 — 숨김 폴더 하나) | 실행·커밋 시 | 집행 — 위반 메시지 자체가 규칙 요약+처방 |
-
-이 스킬(`references/`)은 규범 **전문의 정본**으로 필요할 때 읽는 법전이다 — kit 미설치 프로젝트에는 어떤 규칙도 "적용 중"이 아니며, 설치 제안부터 한다.
-
-## 이 스킬의 구조 (progressive disclosure)
-
-| 필요한 것 | 읽을 파일 |
-|---|---|
-| **헌법 전문** — 공리·파일 종별 카드 전체·트리·네이밍·세트 규칙·테스트 티어 | `references/constitution.md` |
-| 매니페스트 프로토콜 — 출력 명세·추출 앵커·소스 규약·버전 체인 | `references/manifest-protocol.md` |
-| 소비 규율·승격/강등 절차·Rule of Two·이스케이프 해치 규율 | `references/discipline.md` |
-| 감사 룰 매트릭스 — 코어 룰 전체·종별 셀렉터·프로젝트 확장법 | `references/audit-rules.md` |
-| kit 설치·업데이트·버전 관리 — 소유권 경계·마커 블록·semver | `references/kit.md` |
-| 기존 프로젝트 도입 플레이북 (스캔→접미사 코드모드→kit 설치→승격) | `references/adoption.md` |
-| **설치 페이로드** (CLI·config·템플릿·훅·README 씨앗) | `kit/` |
-
-## 3중 방어 — 왜 이 시스템인가
-
-AI·사람이 이미 있는 컴포넌트를 두고 또 만드는 원인은 셋이고, 각각 기계적으로 막는다:
-
-1. **몰라서 만든다** → `bun run arch:manifest`가 최신 컴포넌트 API를 작업 컨텍스트에 주입 (§프로토콜)
-2. **알아도 안 쓴다** → 소비 규율 5조 + 이 스킬의 워크플로우가 소비→variant→신설 순서를 강제
-3. **그래도 만들면** → `bun run arch:audit`(pre-commit)가 커밋을 차단
-
-## 파일 종별 레지스트리 (요약 — 카드 전문은 constitution.md)
-
-**불변식**: 레포의 모든 `.svelte`·데이터 계층 `.ts`는 아래 종별 중 하나로 자기 역할을 **파일명으로** 선언한다. 무표 파일은 존재 자체가 위반.
-
-| 종별 | 역할 한 줄 |
-|---|---|
-| `*.primitive.svelte` | 도메인 무지 디자인 시스템 (다른 제품에 복사해도 성립) |
-| `*.composite.svelte` | 도메인/셸 조립, dumb (mock props만으로 렌더) |
-| `*.live.svelte` | 데이터 섬 배선 — 페어 dumb 1개에 remote 결합, 마크업 0 |
-| `+page/+layout.svelte` | **최종 조립자** — live 마운트·Snippet 주입·파라미터 전달만, 배선 로직 0 |
-| `*.svelte.ts` | 클라 상태·로직(runes 모듈) — live 전용 소비, vitest 테스트 가능 |
-| `*.remote.ts` | wire 경계(humble) — 가드·검증·서비스 호출·전송 매핑만. `export type` = wire 타입 정본 |
-| `*.service.ts` / `*.repository.ts` | 업무 규칙 / 데이터 접근 — 로직의 실체, vitest 의무 |
-| `*.stories.svelte` / `*.svelte.spec.ts` | 격리 렌더 검증 — 옆자리 콜로케이션 |
-| `ui/**` | shadcn-svelte 구역(vendor 보존) — 불가침, primitive만 래핑 소비. 완전 흡수·존속 둘 다 적법 |
-| `primitive/<set>/index.ts` | **세트 배럴**(유일한 합법 배럴) — compound 위젯 부품 재수출만 |
-
-**메타규칙 R0**: 모든 규칙은 적용 종별을 지명해야 한다. `.svelte 전체` 같은 몰빵 타깃은 규칙 형식 위반.
-
-## 프로토콜 — UI 작업 전 의무 실행
-
-```bash
-bun run arch:manifest -- --layer primitive              # 항상: 디자인 시스템 API 전체
-bun run arch:manifest -- --domain <작업도메인>           # 해당 시: 도메인 부품 목록 + wire 타입
-bun run arch:manifest -- --detail <Base>                 # 특정 컴포넌트 심층 (props+TSDoc)
-bun run arch:new -- <primitive|section|composite|set> …  # 신설은 생성기로 (앵커 선재·세트 배럴 자동)
-bun run arch:analyze                                     # 진화 신호: 승격 후보·고아·비대·커버리지
-bun run arch:plan [-- --apply]                           # 기존 구조 → 표준 이행 플랜 (승인 후에만 --apply)
+```text
+계층(수직) / slice(도메인) / segment(기술 성격) / 파일명 접미사(데이터 축)
+src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 ```
 
-출력(티어링: primitive는 Props 원문+TSDoc+기본값, composite는 1줄)을 읽고 나서 UI를 그린다. 매니페스트 1행의 kit 버전이 이 스킬의 `kit/VERSION`보다 낮으면 업데이트를 제안한다.
+- 앞 3단 = FSD 표준(디렉토리). 마지막 1단 = svelte-arch 오버레이(파일명 — FSD가 비워둔 dumb/smart 축).
+- SvelteKit 수술(공식 config): `files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` + `@/*` 별칭. `src/server` = `$lib/server`(서버 전용 보호).
+
+## 계층 레지스트리 (요약 — 카드 전문은 constitution.md)
+
+| 계층 | 역할 한 줄 |
+|---|---|
+| `src/app/` | 초기화 — index.html·hooks·app.css·**routes/**(글루 + pages first 콜로케이션) |
+| `src/pages/` | **닫힘**(기본) — routes 콜로케이션이 전담. config로만 개방 |
+| `src/widgets/` | 자립 대형 블록 — `*Section` view/live 페어·앱 셸(app-sidebar 등) |
+| `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
+| `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model/types)·remote(api) |
+| `src/shared/` | 업무 무관 — `ui/`(디자인 시스템)·`vendor/`(shadcn 원본 보존)·`lib/`·`model/`·`config/` |
+| `src/server/` | FSD 밖 병렬 스택 — `<slice>/`에 service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
+
+**segment**: `ui/`(`.view`+`.live` 페어) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
+
+**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.live`(smart — remote 결합, 마크업 0) · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
+
+## 배치 사다리 (pages first — 이 스킬의 심장)
+
+```text
+① 출생: 모든 새 코드는 라우트 콜로케이션에서 태어난다 (routes/<경로>/X.view.svelte — 접미사 의무)
+② 하강 관문: 둘째 소비자(다른 라우트)가 등장하는 순간에만 내린다
+   명사(개체 표현·타입·API) → entities/<개체> · 동사(상호작용) → features/<동사구>
+   자립 조립 블록 → widgets/<블록> · 업무 어휘 0 + 승격 4테스트 → shared/ui
+③ 판정 불확실 → 높은 계층에 둔다 (widgets 디폴트 — FSD 2.1 공식)
+④ 회귀: 소비자가 1로 줄면 콜로케이션으로 되돌린다 (INSIGNIFICANT_SLICE)
+```
+
+entity의 ui에 live를 만들고 싶다 = widget 승격 신호(entities/ui는 view 전용).
+
+## 3중 방어
+
+1. **몰라서 만든다** → `bun run arch:manifest`가 shared/ui API 전체 + `--slice <이름>`으로 관련 slice·서버 API·wire 타입을 주입
+2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(있으면 소비 → variant → 신설)
+3. **그래도 만들면** → `bun run arch:audit`(48룰, steiger 흡수)이 커밋을 차단 (pre-commit)
+
+## 프로토콜 — 작업 전 의무 실행
+
+```bash
+bun run arch:manifest                        # shared/ui 상세 + 전 계층 slice 요약
+bun run arch:manifest -- --slice <이름>      # 관련 slice 스윕 + server API + wire 타입 원문
+bun run arch:new -- <shared-ui|entity|feature|widget|set|service|repository|adapter> …
+bun run arch:analyze                         # 진화 신호: 고아·해치 클러스터·INSIGNIFICANT
+bun run arch:plan [-- --apply]               # 구 구조 → FSD 이행 제안표 (승인 후에만 --apply)
+bun run arch:audit                           # 커밋 전 (pre-commit 자동)
+```
 
 ## 워크플로우 (에이전트 행동 계약)
 
 ```text
-UI 작업 감지
-→ ① arch:manifest 실행·주입 (없으면 kit 설치 제안 — references/kit.md)
-→ ② 소비 결정: 있으면 소비 → 모자라면 variant 추가 → 없으면 신설 (discipline.md)
-→ ③ 신설: 배치 결정트리(constitution.md) → arch:new 생성기 (종별 접미사·@component/TSDoc 앵커 선재)
-→ ④ arch:audit 통과 (pre-commit 백스톱)
+UI·서버 작업 감지
+→ ① arch:manifest 실행·주입 (kit 미설치면 설치 제안 — references/kit.md)
+→ ② 소비 결정: 있으면 소비 → 모자라면 variant → 없으면 배치 사다리 ①(콜로케이션 출생)
+→ ③ 신설: arch:new 생성기 (segment 골격·public API·앵커 선재)
+→ ④ arch:audit 통과
 ```
 
-**기존 프로젝트 온보딩 — 동의 필수 규범**: init 후 무표 컴포넌트가 감지되면,
+**기존 프로젝트 온보딩 — 동의 필수 규범**: 구 구조 감지 시 ① `arch:plan` → 이행 제안표(svelte.config 수술 + 이동·리네임·3계층 분류·임포트 재작성)를 사용자에게 제시 ② 반드시 묻는다: "FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?" ③ **분류(entities/features/widgets)는 휴리스틱 제안일 뿐** — 사용자 검토·수정(`.svelte-arch/plan-overrides.json`) 후에만 `--apply`.
 
-```text
-① arch:plan 실행 → 이행 플랜(이동·리네임·배럴 폐기·임포트 치환 규모)을 표로 사용자에게 제시
-② 반드시 물어본다: "디렉토리 체계를 표준대로 이렇게 옮기겠습니다. 진행할까요?"
-③ 승인 후에만 arch:plan -- --apply → svelte-check·arch:audit 검증 → diff 리뷰 → 커밋
-```
+## 룰 주입 = 전부 프로젝트 로컬 (머신 글로벌 0)
 
-승인 없이 `--apply`를 실행하지 않는다 — 구조 이행은 사용자의 결정이다.
+| 채널 (전부 레포 커밋) | 발동 | 내용 |
+|---|---|---|
+| 루트 CLAUDE.md 마커 블록 | 매 세션 자동 | 상시 트리거 카드 — 주소 체계·배치 사다리·매니페스트 의무 |
+| 계층·slice 루트 `CLAUDE.md` | 폴더 파일 작업 시 자동 로드 | 폴더 자기서술 (segment는 면제 — 밀도=컨텍스트 비용) |
+| `.svelte-arch/` (CLI·config·훅 마커) | 실행·커밋 시 | 집행 — 위반 메시지 = 규칙 요약+처방 |
 
-배치 결정트리(요약): 데이터 배선? → `.live` / 도메인·셸 지식? → `.composite` (도메인 폴더/layout) / 도메인 무지+토큰만? → `.primitive` — 원자성은 기준 아님, 도메인 무지가 기준.
+## progressive disclosure
+
+| 필요한 것 | 파일 |
+|---|---|
+| 헌법 전문 — 공리·계층/segment/종별 카드·판정표 3종·2×2 매트릭스 | `references/constitution.md` |
+| FSD 2.1 번역·용어 사전(업계 대응어)·svelte.config 수술 정본 | `references/fsd-guide.md` |
+| 배치 사다리·승격 관문 4테스트·강등·Rule of Two·해치 규율 | `references/discipline.md` |
+| 감사 룰 48 전량 (steiger 대응표 포함) | `references/audit-rules.md` |
+| 매니페스트 출력 명세·추출 앵커·버전 체인 | `references/manifest-protocol.md` |
+| 기존 프로젝트 이행 플레이북 | `references/adoption.md` |
+| kit 설치·업데이트·소유권·semver | `references/kit.md` |
 
 ## 흔한 실수
 
-- **"공용이니까 도메인끼리 공유"** — cross-domain import 금지. 공유 욕구 = primitive 승격 신호.
-- **live에 마크업·로직이 자란다** — 마크업은 dumb의 prop 부족, 로직은 `*.svelte.ts` 추출 신호.
-- **호출부에서 이스케이프 해치로 스타일 덮기부터 시작** — variant 추가가 먼저. 같은 해치값 2파일 = 감사 위반.
-- **primitive에 도메인 문구 기본값** — 문구성 prop은 기본값 없이 소비자가 공급.
-- **+page/+layout에 배선 로직** — 셸의 sign-out 버튼조차 layout 도메인의 live가 배선한다. 글루는 끝까지 마운트+주입만.
-- **선반/도메인 배럴 부활** — 배럴은 세트 폴더(compound 위젯)만 합법.
-- **`cn()`·템플릿 리터럴로 클래스 합성** — 내장 `class={[...]}` 배열만(강제). 배열이어야 린트·정렬·감사가 클래스를 정확히 읽는다.
+- **entity ui에 live 생성** — entities/ui는 view 전용. 자기 데이터를 무는 블록 = widget.
+- **같은 계층 slice 수평 import** — 금지(type-only는 slice index 경유 허용). 처방 = 하강.
+- **shared/ui·shared/lib에 통합 배럴** — 딥 임포트만(FSD 공식 처방 = Vite 성능 가이드).
+- **live에 마크업·로직이 자란다** — 마크업은 view의 prop 부족, 로직은 model `*.svelte.ts` 추출 신호.
+- **view가 `$app/state`로 URL을 읽는다** — 외부 정본은 prop 주입(`active` 등). live·글루 소관.
+- **remote에 값 export** — remote function 외 값 export는 서버 트랜스폼에서 즉사. 타입은 합법.
+- **`cn()`·템플릿 리터럴 클래스** — 내장 `class={[...]}` 배열만 (vendor 내부만 예외).
+- **+page.server.ts에서 데이터 로딩** — 가드·메타 전용. 수급 사다리: remote → universal load → +page.server → raw endpoint.
