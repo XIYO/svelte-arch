@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.1.0 — 2026-07-04
+
+**plan 3단 이행 파이프라인** — 1차 기계(휴리스틱) · 2차 LLM(내용 판정) · 3차 해체(리팩토링). 휴리스틱이 특정 네이밍 관례에 과적합될 수 있다는 전제를 명시하고, 기계가 확신 못 하는 분류를 LLM 단계로 넘긴다.
+
+- plan: 이동마다 확신도 태깅 — 위치·프레임워크 관례 기반=확실 / 네이밍 추측(3계층 분류·types·state·utils)=`[?추정]`. 요약 줄에 확실/추정 집계 + 2차 검토 안내, `--json`에 `sure` 필드. overrides 지정은 항상 확실.
+- plan: 해체 후보(⚒) 분리 보고 — `.svelte`가 서버 모듈(`@/server`·`.service`·`.repository`·drizzle)을 직접 소비하면 이동으로 해결 불가. view/live 분리·server 추출 대상 목록화(`--json`에 `teardown`), apply는 이동만 수행.
+- audit: `SPEC_PLACEMENT` 신설(49→**50룰**) — src 안 spec은 같은 폴더 동일 Base 검증 대상과 콜로케이션 의무. 테스트 배치 정본 성문화: 유닛=콜로케이션 · 통합=최상위 `tests/` · e2e=최상위 `e2e/`.
+- skill: 온보딩 규범을 3단 파이프라인으로 개정 — 2차 LLM 분류 절차(판정 질문 → `plan-overrides.json` 확정)와 **메타 동시 시딩**(내용을 연 파일은 그 자리에서 `@component` 역할 1행 작성 — 이행 직후 `MISSING_COMPONENT_DOC` 부채 원천 차단), 3차 해체 별도 승인 플로우. 정본 = adoption.md §2.5·§2.7·§2.8.
+
 ## 4.0.2 — 2026-07-04
 
 - fix(plan): 미분류 파일이 `plan-overrides.json` 조회 없이 followups로 빠지던 것 — 이동 루프 진입에서 overrides 최우선 적용(휴리스틱 밖 파일도 대상 지정 가능, `skip` 포함).

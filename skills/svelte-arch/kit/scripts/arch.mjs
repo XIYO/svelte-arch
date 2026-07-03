@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.0.2';
+const KIT_VERSION = '4.1.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -485,7 +485,7 @@ async function runManifest(args, config, files) {
 	return 0;
 }
 
-// ── audit — 49룰 ─────────────────────────────────────────────────────────
+// ── audit — 50룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
 const TEAM_SVELTE = new Set(['view', 'live', 'glue']);
 
@@ -588,6 +588,13 @@ async function collectViolations(files, config, filesArg = null) {
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_COMPONENT', 'error', '무표 .svelte — .view/.live/.stories/글루로 역할 선언 (routes 콜로케이션 포함)'));
 		if (kind === 'unmarked-ts' && loc.area !== 'other')
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_TS', 'error', '무표 .ts — 종별 접미사(.util/.service/…·types.ts) 또는 지정 위치 필요'));
+		// spec 배치 — 유닛 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base). 통합=tests/ · e2e=e2e/ (src 밖, FSD 계층 밖)
+		if (kind === 'spec' && loc.area !== 'other') {
+			const base = baseOf(f.rel);
+			const dir = norm(dirname(f.rel));
+			const paired = files.some((x) => x !== f && !['spec', 'stories'].includes(x.kind) && norm(dirname(x.rel)) === dir && (basename(x.rel) === `${base}.ts` || basename(x.rel).startsWith(`${base}.`)));
+			if (!paired) out.push(v(f, 1, basename(f.rel), 'SPEC_PLACEMENT', 'error', 'src 안 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base) 의무 — 대상 없는 spec은 통합(tests/)·e2e(e2e/)로'));
+		}
 		if (kind === 'live') {
 			if (loc.layer === 'entities') out.push(v(f, 1, basename(f.rel), 'ENTITY_UI_VIEW_ONLY', 'error', 'entities/ui는 view 전용 — live 욕구 = widget 승격 신호'));
 			const pair = join(dirname(f.abs), `${baseOf(f.rel)}.view.svelte`);
@@ -981,12 +988,12 @@ async function runPlan(args) {
 		return 0;
 	}
 	const overrides = await loadOverrides();
-	const moves = []; // { from, to, note }
+	const moves = []; // { from, to, note, sure } — sure: 위치·프레임워크 관례 기반=true / 네이밍 추측=false(2차 LLM 검토 대상)
 	const deletes = [];
 	const followups = [];
-	const addMove = (from, to, note = '') => {
+	const addMove = (from, to, note = '', sure = true) => {
 		if (overrides[from] === 'skip') return;
-		moves.push({ from: norm(from), to: norm(overrides[from] ?? to), note });
+		moves.push({ from: norm(from), to: norm(overrides[from] ?? to), note, sure: from in overrides ? true : sure });
 	};
 	const legacyFiles = [];
 	for await (const abs of walk(join(ROOT, 'src'))) legacyFiles.push(norm(relative(ROOT, abs)));
@@ -1029,7 +1036,8 @@ async function runPlan(args) {
 			else if (/(Form|Dialog|Modal|Popup|Drawer)$/.test(base)) target = `src/features/${kebab(base)}/ui/${base}${suffix}`;
 			else if (domain === 'layout') target = `src/widgets/${kebab(base)}/ui/${base}${suffix}`;
 			else target = `src/entities/${domain}/ui/${base}${suffix}`;
-			addMove(rel, target, base.endsWith('Section') ? 'widget' : /(Form|Dialog|Modal|Popup|Drawer)$/.test(base) ? 'feature' : domain === 'layout' ? 'widget(셸)' : 'entity');
+			// 3계층 분류는 네이밍 관례 추측 — sure=false (2차 LLM이 내용 열람으로 확정)
+			addMove(rel, target, base.endsWith('Section') ? 'widget' : /(Form|Dialog|Modal|Popup|Drawer)$/.test(base) ? 'feature' : domain === 'layout' ? 'widget(셸)' : 'entity', false);
 			continue;
 		}
 		// data 계층
@@ -1043,21 +1051,21 @@ async function runPlan(args) {
 		if (tm) {
 			const [, name, spec = ''] = tm;
 			const stem = domains.has(name) ? `src/entities/${name}/model/types` : `src/shared/model/${name}.types`;
-			addMove(rel, `${stem}${spec}.ts`); // spec은 본체와 별도 대상 — 동일 대상 덮어쓰기 금지
+			addMove(rel, `${stem}${spec}.ts`, '', false); // spec은 본체와 별도 대상 — 동일 대상 덮어쓰기 금지. 도메인 매칭=추측
 			continue;
 		}
 		const stm = rel.match(/^src\/lib\/state\/([^/]+)\.svelte(\.spec)?\.ts$/);
 		if (stm) {
 			const name = stm[1];
 			const home = domains.has(name) ? `src/entities/${name}/model/` : 'src/shared/model/';
-			addMove(rel, home + basename(rel));
+			addMove(rel, home + basename(rel), '', false);
 			continue;
 		}
 		const um = rel.match(/^src\/lib\/utils\/(.+)$/);
 		if (um) {
 			let to = 'src/shared/lib/' + um[1];
 			if (to.endsWith('.ts') && !/\.(util|spec|test|svelte)\.ts$/.test(to) && !to.endsWith('.d.ts')) to = to.replace(/\.ts$/, '.util.ts');
-			addMove(rel, to);
+			addMove(rel, to, '', false); // 업무 로직 util일 수 있음 — shared/lib 배치는 추정
 			continue;
 		}
 		if (rel.startsWith('src/lib/')) followups.push(rel); // 미분류 — overrides 필요
@@ -1081,6 +1089,9 @@ async function runPlan(args) {
 			files.push({ abs, rel, content: await readFile(abs, 'utf-8') });
 		}
 	}
+	// 해체 후보 — .svelte가 서버 모듈·service/repository를 직접 문다 = 이동만으론 부족(view/live 분리·server 추출 필요)
+	const TEARDOWN_RE = /from\s*['"](?:\$lib\/server\/|@\/server\/)[^'"]*['"]|from\s*['"][^'"]*\.(?:service|repository)['"]|from\s*['"]drizzle-orm/;
+	const teardown = files.filter((x) => x.rel.endsWith('.svelte') && TEARDOWN_RE.test(x.content)).map((x) => x.rel);
 	const pjoin = (...parts) => {
 		const out = [];
 		for (const seg of parts.join('/').split('/')) {
@@ -1135,20 +1146,27 @@ async function runPlan(args) {
 	// ── 출력 ──
 	const apply = args.has('--apply');
 	if (args.has('--json') && !apply) {
-		console.log(JSON.stringify({ kit: KIT_VERSION, moves: applied, deletes, skipped, dupes, followups, rewriteCount }, null, 2));
+		console.log(JSON.stringify({ kit: KIT_VERSION, moves: applied, deletes, skipped, dupes, followups, teardown, rewriteCount }, null, 2));
 		return 0;
 	}
-	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동 ${applied.length} · 삭제(배럴) ${deletes.length} · 임포트 재작성 ${rewriteCount}파일 · 미분류 ${followups.length}`);
+	const guesses = applied.filter((m) => !m.sure);
+	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동 ${applied.length}(확실 ${applied.length - guesses.length} · 추정 ${guesses.length}) · 삭제(배럴) ${deletes.length} · 임포트 재작성 ${rewriteCount}파일 · 미분류 ${followups.length} · 해체 후보 ${teardown.length}`);
+	if (guesses.length || followups.length) console.log(`  추정·미분류 = 2차 LLM 검토 대상 — 내용을 열어 계층 판정 후 plan-overrides.json 확정 (스킬 adoption.md §2.5)`);
 	console.log(`\n## 0단계(수동 1분): svelte.config 수술 — files.lib='src' · files.routes='src/app/routes' · files.appTemplate='src/app/index.html' · alias '@'→'src' (정본: 스킬 fsd-guide.md)`);
 	const byGroup = Map.groupBy(applied, (m) => m.to.split('/').slice(1, 3).join('/'));
 	for (const [g, list] of [...byGroup].sort()) {
 		console.log(`\n## ${g} (${list.length})`);
-		for (const m of (args.has('--full') ? list : list.slice(0, 5))) console.log(`  ${m.from}  →  ${m.to}${m.note ? `  [${m.note}]` : ''}`);
+		for (const m of (args.has('--full') ? list : list.slice(0, 5))) console.log(`  ${m.from}  →  ${m.to}${m.note ? `  [${m.note}]` : ''}${m.sure ? '' : '  [?추정]'}`);
 		if (!args.has('--full') && list.length > 5) console.log(`  … ${list.length - 5}건 더 (--full)`);
 	}
 	for (const d of deletes) console.log(`## 삭제(통합 배럴): ${d}`);
 	for (const s of skipped) console.log(`## ⚠ 건너뜀(대상 존재): ${s.from} ↛ ${s.to}`);
 	for (const l of dupes) console.log(`## ✗ 대상 충돌(자료 소실 위험): ${l.map((m) => m.from).join(' + ')}  →  ${l[0].to} — plan-overrides.json 으로 대상 분리 필요`);
+	if (teardown.length) {
+		console.log(`\n## ⚒ 해체 후보 (${teardown.length}) — .svelte가 서버 모듈을 직접 소비. 이동해도 audit 위반 잔존 → view/live 분리·server 추출(대규모 리팩토링, 이행 커밋과 분리·별도 승인):`);
+		for (const t of teardown.slice(0, 20)) console.log(`  ${t}`);
+		if (teardown.length > 20) console.log(`  … ${teardown.length - 20}건 더`);
+	}
 	if (followups.length) {
 		console.log(`\n## 미분류 (plan-overrides.json 으로 지정 후 재실행 — {"<from>": "<to|skip>"}):`);
 		for (const f of followups.slice(0, 20)) console.log(`  ${f}`);

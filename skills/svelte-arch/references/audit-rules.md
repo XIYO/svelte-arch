@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 49룰 (v4, steiger 흡수)
+# 감사 룰 매트릭스 — 50룰 (v4, steiger 흡수)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -68,7 +68,7 @@
 | `PAGE_SERVER_DATA_FETCH` | +page.server·+layout.server | service·repository·schema·adapter·db(database slice) 값 import — 가드·리디렉트·메타 전용 | error |
 | `ENDPOINT_THICK` | +server.ts | repository·schema·adapter·db(database slice) 값 import — guard+service 경유 의무 | error |
 
-## E군 — 공용 (4)
+## E군 — 공용 (5)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
@@ -76,6 +76,7 @@
 | `IMPURE_UTIL` | util | `$app/*`·server·api·model 상태 import | error |
 | `TYPES_ONLY` | types.ts·*.types.ts | 런타임 값 export (enum 포함 — union 타입 권장) | error |
 | `MISSING_CLAUDE_MD` | 계층·slice 루트 | CLAUDE.md 부재 (segment 면제 — kit이 씨앗 생성) | error |
+| `SPEC_PLACEMENT` | src 안 spec | 같은 폴더에 동일 Base 검증 대상 부재 — 유닛 spec은 콜로케이션 의무, 통합=최상위 `tests/`·e2e=최상위 `e2e/`(src 밖) | error |
 
 ## 체크리스트 룰 (비자동 — 카드·리뷰·에이전트 워크플로우에서 확인, 13)
 

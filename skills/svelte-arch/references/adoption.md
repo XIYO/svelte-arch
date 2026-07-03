@@ -19,7 +19,31 @@ bun run arch:plan -- --full  # 그룹당 5건 요약 대신 전체 목록 (--jso
 ```
 
 - **분류는 휴리스틱 제안일 뿐**: `*Section` view/live 페어→widgets · Form/Dialog/Modal/Popup→features · 잔여 표시 부품→entities · 구 layout 셸→블록당 widget slice · 구 primitive→shared/ui(`.view` 리네임) · 구 ui vendor→shared/vendor · remote→entities/api · service·repository→server/<slice> · types→entities/model|shared/model · state→model 분산 · utils→shared/lib(`.util`).
-- **에이전트 규범**: 제안표를 사용자에게 보여주고 **"FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?"** 를 반드시 묻는다. 분류 수정은 `.svelte-arch/plan-overrides.json`(`{ "<from>": "<계층/slice>" }`)에 기록 → plan이 재산출.
+- **에이전트 규범**: 제안표를 사용자에게 보여주고 **"FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?"** 를 반드시 묻는다. 분류 수정은 `.svelte-arch/plan-overrides.json`(`{ "<from>": "<to|skip>" }`)에 기록 → plan이 재산출.
+- 휴리스틱은 특정 네이밍 관례(`*Section`·`*Form` 등)에 과적합될 수 있다 — plan이 위치·프레임워크 관례 기반은 확실, 네이밍 추측은 `[?추정]`으로 태깅해 요약에 집계한다. 추정·미분류는 아래 §2.5의 2차 라운드가 확정한다.
+
+## 2.5 2차 LLM 분류 라운드 (추정·미분류 확정)
+
+plan 요약의 `추정 N`·`미분류 K`가 대상. 에이전트 절차:
+
+1. `arch:plan -- --json`으로 `sure:false` 이동과 미분류 목록을 수집한다.
+2. 파일마다 판정 — 이름·경로로 확실하면 그대로, 아니면 **내용을 연다**: 업무 개체 표현(명사)→`entities/<개체>` · 사용자 상호작용(동사)→`features/<동사구>` · 자립 조립 블록→`widgets/<블록>` · 업무 어휘 0+승격 4테스트→`shared/*` · 서버 로직→`server/<slice>` · 확신 없음→widgets(FSD 공식 디폴트).
+3. 결정을 `plan-overrides.json`에 기록 → plan 재실행 → **미분류 0 + 대상 충돌(✗) 0** 확인 후 사용자 승인.
+4. **메타 동시 시딩**: 내용을 연 파일은 분류 근거를 그 자리에서 `@component` 역할 1행(view)·slice CLAUDE.md 1행으로 적는다 — 읽기 비용을 두 번 내지 않고, 이행 직후 `MISSING_COMPONENT_DOC` 부채를 원천 차단한다(적용 후 이행 커밋에 포함).
+
+## 2.7 해체 후보 (⚒ — 이동으로 해결 불가)
+
+`.svelte`가 서버 모듈(`@/server/*`·`.service`·`.repository`·drizzle)을 직접 소비하면 어느 계층으로 옮겨도 audit 위반이 남는다. plan이 `⚒ 해체 후보` 목록으로 분리 보고하며, apply는 그대로 이동만 한다(이동 자체는 무해 — 부채로 계측). 처방 = **이행 커밋과 분리한 별도 승인 리팩토링**: ① 마크업 → `.view` ② 데이터 배선 → `.live` + remote(`entities/<slice>/api`) ③ 서버 로직 → `server/<slice>`의 service·repository 추출. 분할 구조 자체가 없는 프로젝트(god component 다수)는 이 라운드가 사실상 본 공사다 — 파일 단위로 제안→승인→검증을 반복한다.
+
+## 2.8 테스트 배치 정본
+
+| 종류 | 정위치 | 집행 |
+|---|---|---|
+| 유닛 spec (`X.spec.ts`·`X.svelte.spec.ts`) | 검증 대상과 같은 폴더 (콜로케이션) | audit `SPEC_PLACEMENT` |
+| 통합 테스트 (실 DB·컨테이너) | 최상위 `tests/` | src 밖 = FSD 계층 밖 |
+| e2e (Playwright) | 최상위 `e2e/` | 〃 |
+
+plan은 콜로케이션 spec을 본체와 페어로 이동하고(`types.spec.ts` 등 별도 대상 보장), `tests/`·`e2e/`는 이동 없이 임포트만 재작성한다.
 
 ## 3. 적용 (`arch:plan -- --apply`)
 
