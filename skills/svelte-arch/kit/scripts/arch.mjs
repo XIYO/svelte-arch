@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.2.0';
+const KIT_VERSION = '4.2.1';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -780,11 +780,20 @@ async function collectViolations(files, config, filesArg = null) {
 			if (/^src\/shared\/(ui|lib)\/index\.ts$/.test(r)) { out.push(v(f, 1, 'index.ts', 'NO_SHARED_MEGA_BARREL', 'error', 'shared/ui·lib 통합 배럴 금지 — 딥 임포트 (FSD 공식 처방)')); continue; }
 			const sliceIndex = SLICED.some((l) => new RegExp(`^src/${l}/[^/]+/index\\.ts$`).test(r)) || /^src\/shared\/ui\/[^/]+\/index\.ts$/.test(r);
 			if (!sliceIndex) { out.push(v(f, 1, r, 'SLICE_PUBLIC_API', 'error', 'index.ts는 slice 루트(또는 shared/ui 세트)만 합법')); continue; }
+			// 문장 단위 검사 — 포매터가 개행한 여러 줄 재수출도 인정. 재수출 문장 스팬 밖의
+			// 비어있지 않은 라인(로직·외부 재수출)만 위반으로 지목한다.
 			let reexports = 0;
+			const reexportLines = new Set();
+			for (const m of f.content.matchAll(/^[ \t]*export\s+(type\s+)?(\{[^}]*\}|\*)\s+from\s+['"]\.\/[^'"]+['"];?/gm)) {
+				reexports++;
+				const start = f.content.slice(0, m.index).split('\n').length - 1;
+				const span = m[0].split('\n').length;
+				for (let k = start; k < start + span; k++) reexportLines.add(k);
+			}
 			f.lines.forEach((line, i) => {
+				if (reexportLines.has(i)) return;
 				const t = line.trim();
 				if (!t || t.startsWith('//') || t.startsWith('/*') || t.startsWith('*')) return;
-				if (/^export\s+(type\s+)?(\{[^}]*\}|\*)\s+from\s+'\.\//.test(t)) { reexports++; return; }
 				out.push(v(f, i + 1, t.slice(0, 80), 'SLICE_PUBLIC_API', 'error', 'slice index는 자기 slice 재수출 전용 (로직·외부 재수출 금지)'));
 			});
 			if (reexports > config.heavyReexportMax) out.push(v(f, 1, `재수출 ${reexports}개`, 'HEAVY_REEXPORT', 'warn', 'slice 분할 신호 — 배럴 비대'));
