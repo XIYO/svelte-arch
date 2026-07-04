@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.1.0 — 2026-07-05
+
+**신규 룰 `CLASS_PROP_STRING_TYPE`(warn, 50→52룰)** — 소비 프로젝트에서 실제로 반복 발견된 실수: `class`·`triggerClass` 등 `*Class` prop을 `string`으로 좁게 타입해 A9의 `class={[...]}` 배열 규약(clsx 스타일 배열·객체 합성)과 어긋나는 경우. Svelte `ClassValue`(`svelte/elements`)로 타입하도록 `extractProps()` 결과를 재사용해 감사(새 라인 단위 정규식 없음 — 룰 저작 불변식 준수).
+
+- **constitution.md**: A9에 prop 타입 항 추가.
+- **audit-rules.md**: 룰 표에 `CLASS_PROP_STRING_TYPE` 행 추가.
+- **claude-block.md**: 상시 로드 요약 카드의 "핵심 금칙"에 한 구절 반영 — 커밋 시점이 아니라 작성 시점부터 인지.
+
 ## 5.0.0 — 2026-07-04
 
 **접미사 표준화(BREAKING)** — smart 접미사 `.live.svelte` → `.container.svelte`로 개명. FSD 진영의 관용어(container/presentational)에 맞춰 dumb/smart 축을 부른다. `.view`는 이미 FSD 공식 블로그 관례와 일치했으나 `.live`는 자기설명적이지 않은 자체 조어였다.

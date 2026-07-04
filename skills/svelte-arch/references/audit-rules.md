@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 51룰 (v5, steiger 흡수)
+# 감사 룰 매트릭스 — 52룰 (v5, steiger 흡수)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -42,6 +42,7 @@
 | `MISSING_COMPONENT_DOC` | view | `<!-- @component -->` 부재 | error |
 | `UNNAMED_PROPS_TYPE` | view·container | `$props()` 인라인 타입 — `type Props` 명명 필수 | error |
 | `UNDOCUMENTED_PROP` | shared/ui view | TSDoc 없는 prop (매니페스트 주입 품질) | warn |
+| `CLASS_PROP_STRING_TYPE` | view·container | `class`/`*Class` prop이 `string` 타입 — `ClassValue`(svelte/elements)로 | warn |
 | `CALLBACK_NAME_STYLE` | view | 콜백 prop `on소문자` — camelCase `onXxx` | error |
 | `SET_PARTIAL_IMPORT` | 전체 | 세트 부품 부분 구조분해 — `import * as` 네임스페이스 의무 | error |
 | `VENDOR_IMPORT` | 전체 | `shared/vendor` 소비가 shared/ui 래핑 밖 | error |

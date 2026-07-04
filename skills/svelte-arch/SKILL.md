@@ -50,7 +50,7 @@ entity의 ui에 container를 만들고 싶다 = widget 승격 신호(entities/ui
 
 1. **몰라서 만든다** → `bun run arch:manifest`가 shared/ui API 전체 + `--slice <이름>`으로 관련 slice·서버 API·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(있으면 소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(50룰, steiger 흡수)이 커밋을 차단 (pre-commit)
+3. **그래도 만들면** → `bun run arch:audit`(52룰, steiger 흡수)이 커밋을 차단 (pre-commit)
 
 ## 프로토콜 — 작업 전 의무 실행
 

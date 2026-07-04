@@ -29,7 +29,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.0.0';
+const KIT_VERSION = '5.1.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -747,6 +747,8 @@ async function collectViolations(files, config, filesArg = null) {
 			if (p && !p.irregular) {
 				for (const mem of p.members.filter((x) => /^on[a-z]/.test(x.name) && x.type.includes('=>')))
 					out.push(v(f, 1, `${mem.name} → on${mem.name[2]?.toUpperCase()}${mem.name.slice(3)}`, 'CALLBACK_NAME_STYLE', 'error', '콜백 prop은 camelCase onXxx'));
+				for (const mem of p.members.filter((x) => /^(class|.*Class)$/.test(x.name) && /^string(\s*\|\s*(undefined|null))*$/.test(x.type.trim())))
+					out.push(v(f, 1, `${mem.name}: ${mem.type}`, 'CLASS_PROP_STRING_TYPE', 'warn', 'class류 prop은 string 대신 ClassValue(svelte/elements) — A9 배열 규약과 정합'));
 				if (loc.layer === 'shared')
 					for (const mem of p.members.filter((x) => !x.doc))
 						out.push(v(f, 1, mem.name, 'UNDOCUMENTED_PROP', 'warn', 'shared/ui는 전 prop TSDoc 의무 (매니페스트 품질)'));
