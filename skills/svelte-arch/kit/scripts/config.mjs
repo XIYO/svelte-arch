@@ -16,7 +16,7 @@ export default {
 		crossSlice: [
 			// 'src/widgets/foo/ui/Foo.view.svelte', // 예: 하강 이행 전 — 백로그 #NN
 		],
-		liveOutsideGlue: []
+		containerOutsideGlue: []
 	},
 
 	// 서버 인프라 slice 선언 — CROSS_SLICE_SERVER_IMPORT의 대상(target) 면제 목록.

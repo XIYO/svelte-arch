@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v4)
+ * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v5)
  *
  * ⚠ kit-owned — 직접 수정 금지. 업데이트(init 재실행) 시 덮어써진다.
  *    프로젝트 확장(룰·allowlist·중립 리터럴·pages 개방)은 .svelte-arch/config.mjs 에.
@@ -29,7 +29,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.2.2';
+const KIT_VERSION = '5.0.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -45,7 +45,7 @@ const norm = (p) => p.replaceAll('\\', '/');
 const DEFAULT_CONFIG = {
 	layers: { pages: false },
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '삭제', '검색', '선택', '목록으로', '미리보기', '로딩 중…', '불러오는 중…', '검색 결과가 없습니다'],
-	allow: { crossSlice: [], liveOutsideGlue: [] },
+	allow: { crossSlice: [], containerOutsideGlue: [] },
 	// 서버 인프라 slice 선언 — 여기 등재된 slice는 CROSS_SLICE_SERVER_IMPORT의 대상(target) 면제.
 	// 코어 면제(shared·database·auth)에 더해진다. 도메인 어휘 없는 서버 전용 엔진(llm·crypto·email 등)용.
 	serverInfraSlices: [],
@@ -57,10 +57,16 @@ async function loadConfig() {
 	const p = join(ROOT, '.svelte-arch/config.mjs');
 	if (!existsSync(p)) return DEFAULT_CONFIG;
 	const c = (await import(pathToFileURL(p).href)).default ?? {};
+	const allow = { ...DEFAULT_CONFIG.allow, ...(c.allow ?? {}) };
+	// v5.0.0 하위호환 — allow.liveOutsideGlue 구키를 containerOutsideGlue로 승계 (1버전 한시, config.mjs는 project-owned라 kit이 파일을 직접 고치지 않는다)
+	if (c.allow && 'liveOutsideGlue' in c.allow) {
+		console.warn('⚠ .svelte-arch/config.mjs의 allow.liveOutsideGlue는 구키 — allow.containerOutsideGlue로 개명하세요 (v5.0.0, `.live.svelte`→`.container.svelte`). 값은 이번 실행에 한해 승계됩니다.');
+		allow.containerOutsideGlue = [...new Set([...(allow.containerOutsideGlue ?? []), ...c.allow.liveOutsideGlue])];
+	}
 	return {
 		...DEFAULT_CONFIG, ...c,
 		layers: { ...DEFAULT_CONFIG.layers, ...(c.layers ?? {}) },
-		allow: { ...DEFAULT_CONFIG.allow, ...(c.allow ?? {}) }
+		allow
 	};
 }
 
@@ -114,7 +120,8 @@ function kindOf(rel) {
 	if (b.endsWith('.stories.svelte')) return 'stories';
 	if (b.endsWith('.spec.ts') || b.endsWith('.test.ts')) return 'spec';
 	if (b.endsWith('.view.svelte')) return 'view';
-	if (b.endsWith('.live.svelte')) return 'live';
+	if (b.endsWith('.container.svelte')) return 'container';
+	if (b.endsWith('.live.svelte')) return 'container'; // 구표기 — LEGACY_SUFFIX가 파일 단위 룰에서 별도 지목(이행기 페어·판정은 container와 동일하게 유지)
 	if (b.endsWith('.svelte')) return 'unmarked-svelte';
 	if (b.endsWith('.svelte.ts')) return 'state';
 	if (b.endsWith('.remote.ts')) return 'remote';
@@ -133,7 +140,7 @@ function kindOf(rel) {
 }
 
 function baseOf(rel) {
-	return basename(norm(rel)).replace(/\.(view|live|stories)\.svelte$|\.svelte\.spec\.ts$|\.spec\.ts$|\.test\.ts$|\.svelte$/, '');
+	return basename(norm(rel)).replace(/\.(view|container|live|stories)\.svelte$|\.svelte\.spec\.ts$|\.spec\.ts$|\.test\.ts$|\.svelte$/, '');
 }
 
 async function collectFiles() {
@@ -457,7 +464,7 @@ async function runManifest(args, config, files) {
 
 	const detail = args.get('--detail');
 	if (detail) {
-		const f = files.find((x) => ['view', 'live'].includes(x.kind) && baseOf(x.rel) === detail);
+		const f = files.find((x) => ['view', 'container'].includes(x.kind) && baseOf(x.rel) === detail);
 		if (!f) { console.error(`✗ '${detail}' 컴포넌트를 찾지 못함`); return 1; }
 		out.push('', ...renderDetail(f, consumers, files));
 		console.log(out.join('\n'));
@@ -526,11 +533,11 @@ async function runManifest(args, config, files) {
 		out.push('', `## ${l}`);
 		for (const [slice, sfiles] of [...layerSlices[l]].sort()) {
 			const views = sfiles.filter((x) => x.kind === 'view').length;
-			const lives = sfiles.filter((x) => x.kind === 'live').length;
+			const containers = sfiles.filter((x) => x.kind === 'container').length;
 			const hasStory = sfiles.some((x) => ['stories', 'spec'].includes(x.kind));
 			const one = await claudeFirstLine(join(ROOT, 'src', l, slice));
 			const consumed = new Set(sfiles.flatMap((x) => [...(consumers.get(x.rel) ?? [])])).size;
-			out.push(`${slice} · view ${views}${lives ? ` · ⚡live ${lives}` : ''}${hasStory ? ' · 📖' : ''} · ${one || '(CLAUDE.md 1행 없음)'} · 소비 ${consumed}곳`);
+			out.push(`${slice} · view ${views}${containers ? ` · ⚡container ${containers}` : ''}${hasStory ? ' · 📖' : ''} · ${one || '(CLAUDE.md 1행 없음)'} · 소비 ${consumed}곳`);
 		}
 	}
 	if (serverSlices.size) out.push('', `## server — ${[...serverSlices.keys()].sort().join(' · ')} (상세는 --slice <이름>)`);
@@ -540,7 +547,8 @@ async function runManifest(args, config, files) {
 
 // ── audit — 50룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
-const TEAM_SVELTE = new Set(['view', 'live', 'glue']);
+const TEAM_SVELTE = new Set(['view', 'container', 'glue']);
+const GLUE_KINDS = new Set(['glue', 'glue-server', 'glue-universal']); // 라우트 글루 — 자기 페이지 전속 위젯 마운트는 INSIGNIFICANT_SLICE 소비로 세지 않는다
 
 async function collectViolations(files, config, filesArg = null) {
 	const { edges, fileSet, barrels } = buildGraph(files);
@@ -556,7 +564,7 @@ async function collectViolations(files, config, filesArg = null) {
 		// 외부 스펙 기반
 		if (!T) {
 			if (/^\$app\/(state|navigation)$/.test(spec) && F.kind === 'view' && !e.typeOnly)
-				push(v(F, e.line, spec, 'APP_STATE_IN_VIEW', 'error', 'view의 $app/state·navigation — 외부 정본은 prop 주입 (live·글루 소관)'));
+				push(v(F, e.line, spec, 'APP_STATE_IN_VIEW', 'error', 'view의 $app/state·navigation — 외부 정본은 prop 주입 (container·글루 소관)'));
 			if (/^(clsx|classnames|tailwind-merge|tw-merge|tailwind-variants)$/.test(spec) && (TEAM_SVELTE.has(F.kind) || ['state', 'util'].includes(F.kind)) && !fl.vendor)
 				push(v(F, e.line, spec, 'CLASS_MERGE_IMPORT', 'error', '클래스 합성 유틸 import — 내장 class={[...]} 배열만 (vendor 내부만 예외)'));
 			if (/^\$app\//.test(spec) && ['service', 'repository'].includes(F.kind))
@@ -587,13 +595,13 @@ async function collectViolations(files, config, filesArg = null) {
 			if (!sameSlice)
 				push(v(F, e.line, spec, 'DEEP_IMPORT_INTO_SLICE', 'error', `타 slice 내부 직접 접근 — public API(@/${tl.layer}/${tl.slice}) 경유 의무`));
 		}
-		// live 소비
-		if (T.kind === 'live' && F.kind !== 'glue' && !(fl.area === 'client' && fl.layer === tl?.layer && fl.slice === tl?.slice && F.kind === 'barrel') && !config.allow.liveOutsideGlue.includes(F.rel))
-			push(v(F, e.line, spec, 'LIVE_IMPORT_OUTSIDE_GLUE', 'error', '.live는 글루만 마운트 — view는 Snippet으로 주입받는다'));
+		// container 소비
+		if (T.kind === 'container' && F.kind !== 'glue' && !(fl.area === 'client' && fl.layer === tl?.layer && fl.slice === tl?.slice && F.kind === 'barrel') && !config.allow.containerOutsideGlue.includes(F.rel))
+			push(v(F, e.line, spec, 'CONTAINER_IMPORT_OUTSIDE_GLUE', 'error', '.container는 글루만 마운트 — view는 Snippet으로 주입받는다'));
 		// view 금지 소비
 		if (F.kind === 'view' && !e.typeOnly) {
-			if (T.kind === 'remote') push(v(F, e.line, spec, 'REMOTE_IN_VIEW', 'error', 'view의 remote 값 import — live 페어가 배선'));
-			if (T.kind === 'state') push(v(F, e.line, spec, 'STATE_MODULE_IN_VIEW', 'error', '상태 모듈(*.svelte.ts)은 live 전용'));
+			if (T.kind === 'remote') push(v(F, e.line, spec, 'REMOTE_IN_VIEW', 'error', 'view의 remote 값 import — container 페어가 배선'));
+			if (T.kind === 'state') push(v(F, e.line, spec, 'STATE_MODULE_IN_VIEW', 'error', '상태 모듈(*.svelte.ts)은 container 전용'));
 		}
 		// vendor
 		if (tl?.vendor && !(fl.layer === 'shared' && fl.segment === 'ui') && !fl.vendor)
@@ -642,7 +650,7 @@ async function collectViolations(files, config, filesArg = null) {
 		if (!inScope(f)) continue;
 		const loc = f.loc, kind = f.kind;
 		if (kind === 'unmarked-svelte')
-			out.push(v(f, 1, basename(f.rel), 'UNMARKED_COMPONENT', 'error', '무표 .svelte — .view/.live/.stories/글루로 역할 선언 (routes 콜로케이션 포함)'));
+			out.push(v(f, 1, basename(f.rel), 'UNMARKED_COMPONENT', 'error', '무표 .svelte — .view/.container/.stories/글루로 역할 선언 (routes 콜로케이션 포함)'));
 		if (kind === 'unmarked-ts' && loc.area !== 'other')
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_TS', 'error', '무표 .ts — 종별 접미사(.util/.service/…·types.ts) 또는 지정 위치 필요'));
 		// spec 배치 — 유닛 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base). 통합=tests/ · e2e=e2e/ (src 밖, FSD 계층 밖)
@@ -652,26 +660,28 @@ async function collectViolations(files, config, filesArg = null) {
 			const paired = files.some((x) => x !== f && !['spec', 'stories'].includes(x.kind) && norm(dirname(x.rel)) === dir && (basename(x.rel) === `${base}.ts` || basename(x.rel).startsWith(`${base}.`)));
 			if (!paired) out.push(v(f, 1, basename(f.rel), 'SPEC_PLACEMENT', 'error', 'src 안 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base) 의무 — 대상 없는 spec은 통합(tests/)·e2e(e2e/)로'));
 		}
-		if (kind === 'live') {
-			if (loc.layer === 'entities') out.push(v(f, 1, basename(f.rel), 'ENTITY_UI_VIEW_ONLY', 'error', 'entities/ui는 view 전용 — live 욕구 = widget 승격 신호'));
+		if (kind === 'container') {
+			if (basename(f.rel).endsWith('.live.svelte'))
+				out.push(v(f, 1, basename(f.rel), 'LEGACY_SUFFIX', 'error', '`.live.svelte` 구표기 — `.container.svelte`로 개명'));
+			if (loc.layer === 'entities') out.push(v(f, 1, basename(f.rel), 'ENTITY_UI_VIEW_ONLY', 'error', 'entities/ui는 view 전용 — container 욕구 = widget 승격 신호'));
 			const pair = join(dirname(f.abs), `${baseOf(f.rel)}.view.svelte`);
-			if (!existsSync(pair)) out.push(v(f, 1, `${baseOf(f.rel)}.view.svelte 없음`, 'LIVE_WITHOUT_PAIR', 'error', 'live는 같은 폴더 동일 Base의 .view 페어 필수'));
+			if (!existsSync(pair)) out.push(v(f, 1, `${baseOf(f.rel)}.view.svelte 없음`, 'CONTAINER_WITHOUT_PAIR', 'error', 'container는 같은 폴더 동일 Base의 .view 페어 필수'));
 			let inScript = false;
 			f.lines.forEach((line, i) => {
 				if (/<script\b/.test(line)) inScript = true;
 				if (/<\/script>/.test(line)) { inScript = false; return; }
 				if (!inScript && /<(?!\/|svelte:|script\b|style\b|!--)[a-z]/.test(line))
-					out.push(v(f, i + 1, line.trim(), 'LIVE_MARKUP', 'error', 'live 마크업 0 — boundary+페어+스니펫만'));
+					out.push(v(f, i + 1, line.trim(), 'CONTAINER_MARKUP', 'error', 'container 마크업 0 — boundary+페어+스니펫만'));
 			});
 		}
 		if (kind === 'glue') {
 			f.lines.forEach((line, i) => {
-				if (/\$state\s*\(|\$effect\b/.test(line)) out.push(v(f, i + 1, line.trim(), 'GLUE_LOGIC', 'error', '글루의 $state/$effect — 배선은 live로'));
+				if (/\$state\s*\(|\$effect\b/.test(line)) out.push(v(f, i + 1, line.trim(), 'GLUE_LOGIC', 'error', '글루의 $state/$effect — 배선은 container로'));
 			});
 		}
 		// 접미사↔segment
-		if (['view', 'live'].includes(kind) && loc.area === 'client' && !(loc.segment === 'ui' || (loc.layer === 'shared' && loc.segment === 'ui')))
-			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '.view/.live는 ui segment 또는 routes 콜로케이션에만'));
+		if (['view', 'container'].includes(kind) && loc.area === 'client' && !(loc.segment === 'ui' || (loc.layer === 'shared' && loc.segment === 'ui')))
+			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '.view/.container는 ui segment 또는 routes 콜로케이션에만'));
 		if (kind === 'remote' && !(loc.area === 'client' && loc.segment === 'api'))
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '.remote는 slice의 api segment에만'));
 		if (kind === 'state' && loc.area === 'client' && loc.segment && loc.segment !== 'model')
@@ -712,7 +722,7 @@ async function collectViolations(files, config, filesArg = null) {
 			});
 		}
 		// 클래스 규약 (팀 svelte)
-		if (['view', 'live', 'glue'].includes(kind) && !loc.vendor) {
+		if (['view', 'container', 'glue'].includes(kind) && !loc.vendor) {
 			if (kind === 'view' && /\bclass=\{`/.test(f.content))
 				f.lines.forEach((line, i) => { if (/\bclass=\{`/.test(line)) out.push(v(f, i + 1, line.trim(), 'TEMPLATE_LITERAL_CLASS', 'error', '템플릿 리터럴 클래스 — class={[...]} 배열로')); });
 			const re = /\bclass="[^"]*"/g;
@@ -824,8 +834,10 @@ async function collectViolations(files, config, filesArg = null) {
 					if (s.isDirectory() && !SEGMENTS.includes(s.name))
 						out.push(v(`src/${l}/${e.name}/${s.name}/`, 1, s.name, 'SEGMENT_UNKNOWN', 'error', 'segment는 ui·api·model·lib·config만'));
 				const sliceFiles = files.filter((x) => x.loc.layer === l && x.loc.slice === e.name);
-				const inbound = new Set(edges.filter((ed) => ed.to && sliceFiles.some((sf) => sf.rel === ed.to.rel) && !(ed.from.loc.layer === l && ed.from.loc.slice === e.name)).map((ed) => ed.from.rel));
-				if (inbound.size === 1) out.push(v(`src/${l}/${e.name}/`, 1, `소비 1곳(${[...inbound][0]})`, 'INSIGNIFICANT_SLICE', 'warn', '한 곳만 쓰는 slice — 콜로케이션 회귀 검토 (steiger insignificant-slice)'));
+				// inbound 집계에서 글루(라우트 +page/+layout 등)를 제외한다 — 페이지가 자기 전속 위젯을 마운트하는 것은
+				// steiger 원판도 "소비"로 세지 않는 취지(pages 소비 제외)라, 포함하면 페이지 전속 위젯이 전부 오탐된다.
+				const inbound = new Set(edges.filter((ed) => ed.to && sliceFiles.some((sf) => sf.rel === ed.to.rel) && !(ed.from.loc.layer === l && ed.from.loc.slice === e.name) && !GLUE_KINDS.has(ed.from.kind)).map((ed) => ed.from.rel));
+				if (inbound.size === 1) out.push(v(`src/${l}/${e.name}/`, 1, `소비 1곳(${[...inbound][0]})`, 'INSIGNIFICANT_SLICE', 'warn', '한 곳만 쓰는 slice — 콜로케이션 회귀 검토 (steiger insignificant-slice, 글루/페이지 소비는 세지 않음)'));
 			}
 		}
 		for (const l of [...LAYERS.filter((x) => x !== 'pages' || config.layers.pages), 'server']) {
@@ -892,9 +904,9 @@ async function runAnalyze(args, config, files) {
 	const consumers = buildConsumerMap(files, edges);
 	const sharedUi = files.filter((f) => f.kind === 'view' && f.loc.layer === 'shared');
 	const R = { kit: KIT_VERSION };
-	R.kinds = Object.fromEntries(['view', 'live', 'glue', 'remote', 'service', 'repository', 'adapter', 'guard', 'state', 'util'].map((k) => [k, files.filter((f) => f.kind === k).length]));
+	R.kinds = Object.fromEntries(['view', 'container', 'glue', 'remote', 'service', 'repository', 'adapter', 'guard', 'state', 'util'].map((k) => [k, files.filter((f) => f.kind === k).length]));
 	R.orphans = sharedUi.filter((f) => (consumers.get(f.rel)?.size ?? 0) === 0).map((f) => baseOf(f.rel));
-	R.fatLives = files.filter((f) => f.kind === 'live' && f.lines.length > 100).map((f) => `${f.rel} (${f.lines.length}줄)`);
+	R.fatContainers = files.filter((f) => f.kind === 'container' && f.lines.length > 100).map((f) => `${f.rel} (${f.lines.length}줄)`);
 	const NATIVE = ['button', 'input', 'table', 'dialog', 'textarea', 'select', 'nav', 'progress'];
 	const nativeCount = Object.fromEntries(NATIVE.map((t) => [t, 0]));
 	for (const f of files.filter((x) => x.kind === 'view' && x.loc.layer !== 'shared'))
@@ -913,7 +925,7 @@ async function runAnalyze(args, config, files) {
 	if (R.orphans.length) out.push(`⚠ 고아 shared/ui (소비 0): ${R.orphans.join(', ')} — 두 릴리스 연속이면 삭제 검토`);
 	if (R.insignificant.length) out.push(`🔺 INSIGNIFICANT slice (소비 1곳): ${R.insignificant.join(', ')} — 콜로케이션 회귀 검토`);
 	if (R.hatchClusters.length) out.push('', '🔺 해치 클러스터 (동일 *Class 복붙 — shared/ui variant 승격 후보):', ...R.hatchClusters.map((s) => `   ${s}`));
-	if (R.fatLives.length) out.push('', '🔺 live 비대 (>100줄 — model *.svelte.ts 추출):', ...R.fatLives.map((s) => `   ${s}`));
+	if (R.fatContainers.length) out.push('', '🔺 container 비대 (>100줄 — model *.svelte.ts 추출):', ...R.fatContainers.map((s) => `   ${s}`));
 	if (R.nativeSignals.length) out.push('', '🔺 네이티브 요소 다빈도:', ...R.nativeSignals.map((s) => `   ${s}`));
 	console.log(out.join('\n'));
 	return 0;
@@ -941,7 +953,7 @@ const isKebab = (s) => /^[a-z][a-z0-9-]*$/.test(s);
 // "생성 직후 자체 감사(MISSING_CLAUDE_MD) 실패"가 없게 한다.
 const LAYER_ROLES = {
 	app: '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
-	widgets: '자립 대형 블록 slice들 (view/live 페어 = 독립 데이터 섬)',
+	widgets: '자립 대형 블록 slice들 (view/container 페어 = 독립 데이터 섬)',
 	features: '사용자 상호작용(동사) slice들 — 폼·다이얼로그·액션',
 	entities: '업무 개체(명사) slice들 — 표시 view·wire 타입(model)·remote(api). ui는 view 전용',
 	shared: '업무 무관 — ui(디자인 시스템, 딥 임포트)·vendor(shadcn 원본 보존)·lib·model·config',
@@ -972,7 +984,7 @@ async function runNew(positionals) {
 		await writeFile(abs, content, 'utf-8');
 		created.push(rel);
 	};
-	const sliceScaffold = async (layer, slice, base, withLive) => {
+	const sliceScaffold = async (layer, slice, base, withContainer) => {
 		if (!isKebab(slice) || !isPascal(base)) return console.error(`사용법: new ${cmd} <kebab-slice> <PascalBase>`), 1;
 		await assertUniqueBase(base);
 		const dir = join(ROOT, 'src', layer, slice);
@@ -982,10 +994,10 @@ async function runNew(positionals) {
 		const view = await loadTemplate('SliceSection.view.svelte');
 		await write(`src/${layer}/${slice}/ui/${base}.view.svelte`, view.replaceAll('SliceSection', base).replaceAll('example', slice));
 		let index = `export { default as ${base} } from './ui/${base}.view.svelte';\n`;
-		if (withLive) {
-			const live = await loadTemplate('SliceSection.live.svelte');
-			await write(`src/${layer}/${slice}/ui/${base}.live.svelte`, live.replaceAll('SliceSection', base).replaceAll('example', slice));
-			index += `export { default as ${base}Live } from './ui/${base}.live.svelte';\n`;
+		if (withContainer) {
+			const container = await loadTemplate('SliceSection.container.svelte');
+			await write(`src/${layer}/${slice}/ui/${base}.container.svelte`, container.replaceAll('SliceSection', base).replaceAll('example', slice));
+			index += `export { default as ${base}Container } from './ui/${base}.container.svelte';\n`;
 		}
 		if (!existsSync(join(dir, 'index.ts'))) await write(`src/${layer}/${slice}/index.ts`, index);
 		return 0;
@@ -1087,7 +1099,7 @@ async function runPlan(args) {
 		if (pm) {
 			let to = 'src/shared/ui/' + pm[1];
 			if (b === 'index.ts' && !pm[1].includes('/')) { deletes.push(rel); continue; } // 통합 배럴 폐기
-			if (b.endsWith('.svelte') && !/\.(view|live|stories)\.svelte$/.test(b)) to = to.replace(/\.svelte$/, '.view.svelte');
+			if (b.endsWith('.svelte') && !/\.(view|container|live|stories)\.svelte$/.test(b)) to = to.replace(/\.svelte$/, '.view.svelte');
 			addMove(rel, to);
 			continue;
 		}
@@ -1096,7 +1108,7 @@ async function runPlan(args) {
 		if (cm) {
 			const [, domain, file] = cm;
 			const base = baseOf(rel);
-			const suffix = file.endsWith('.live.svelte') ? '.live.svelte' : /\.(view|stories)\.svelte$/.test(file) ? file.slice(file.indexOf('.')) : '.view.svelte';
+			const suffix = /\.(container|live)\.svelte$/.test(file) ? '.container.svelte' : /\.(view|stories)\.svelte$/.test(file) ? file.slice(file.indexOf('.')) : '.view.svelte';
 			let target;
 			if (base.endsWith('Section')) target = `src/widgets/${kebab(base.replace(/Section$/, ''))}/ui/${base}${suffix}`;
 			else if (/(Form|Dialog|Modal|Popup|Drawer)$/.test(base)) target = `src/features/${kebab(base)}/ui/${base}${suffix}`;
@@ -1155,7 +1167,7 @@ async function runPlan(args) {
 			files.push({ abs, rel, content: await readFile(abs, 'utf-8') });
 		}
 	}
-	// 해체 후보 — .svelte가 서버 모듈·service/repository를 직접 문다 = 이동만으론 부족(view/live 분리·server 추출 필요)
+	// 해체 후보 — .svelte가 서버 모듈·service/repository를 직접 문다 = 이동만으론 부족(view/container 분리·server 추출 필요)
 	const TEARDOWN_RE = /from\s*['"](?:\$lib\/server\/|@\/server\/)[^'"]*['"]|from\s*['"][^'"]*\.(?:service|repository)['"]|from\s*['"]drizzle-orm/;
 	const teardown = files.filter((x) => x.rel.endsWith('.svelte') && TEARDOWN_RE.test(x.content)).map((x) => x.rel);
 	const pjoin = (...parts) => {
@@ -1229,7 +1241,7 @@ async function runPlan(args) {
 	for (const s of skipped) console.log(`## ⚠ 건너뜀(대상 존재): ${s.from} ↛ ${s.to}`);
 	for (const l of dupes) console.log(`## ✗ 대상 충돌(자료 소실 위험): ${l.map((m) => m.from).join(' + ')}  →  ${l[0].to} — plan-overrides.json 으로 대상 분리 필요`);
 	if (teardown.length) {
-		console.log(`\n## ⚒ 해체 후보 (${teardown.length}) — .svelte가 서버 모듈을 직접 소비. 이동해도 audit 위반 잔존 → view/live 분리·server 추출(대규모 리팩토링, 이행 커밋과 분리·별도 승인):`);
+		console.log(`\n## ⚒ 해체 후보 (${teardown.length}) — .svelte가 서버 모듈을 직접 소비. 이동해도 audit 위반 잔존 → view/container 분리·server 추출(대규모 리팩토링, 이행 커밋과 분리·별도 승인):`);
 		for (const t of teardown.slice(0, 20)) console.log(`  ${t}`);
 		if (teardown.length > 20) console.log(`  … ${teardown.length - 20}건 더`);
 	}
@@ -1302,7 +1314,7 @@ async function runPlan(args) {
 				for await (const p of walk(sliceDir)) {
 					const r = norm(relative(sliceDir, p));
 					if (r.endsWith('.view.svelte')) lines.push(`export { default as ${baseOf(r)} } from './${r}';`);
-					else if (r.endsWith('.live.svelte')) lines.push(`export { default as ${baseOf(r)}Live } from './${r}';`);
+					else if (r.endsWith('.container.svelte')) lines.push(`export { default as ${baseOf(r)}Container } from './${r}';`);
 					else if (r.endsWith('.remote.ts')) lines.push(`export * from './${r.replace(/\.ts$/, '')}';`);
 					else if (basename(r) === 'types.ts') lines.push(`export * from './${r.replace(/\.ts$/, '')}';`);
 				}

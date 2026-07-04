@@ -146,7 +146,7 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 // ── 4. CLAUDE.md 씨앗 — 계층·slice 루트 (없을 때만, FSD 트리에서만) ──────
 const LAYER_ROLES = {
 	'src/app': '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
-	'src/widgets': '자립 대형 블록 slice들 (view/live 페어 = 독립 데이터 섬)',
+	'src/widgets': '자립 대형 블록 slice들 (view/container 페어 = 독립 데이터 섬)',
 	'src/features': '사용자 상호작용(동사) slice들 — 폼·다이얼로그·액션',
 	'src/entities': '업무 개체(명사) slice들 — 표시 view·wire 타입(model)·remote(api). ui는 view 전용',
 	'src/shared': '업무 무관 — ui(디자인 시스템, 딥 임포트)·vendor(shadcn 원본 보존)·lib·model·config',

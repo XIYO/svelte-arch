@@ -6,7 +6,7 @@
 
 ```text
 ① 출생: 모든 새 코드는 라우트 콜로케이션에서 태어난다
-   routes/<경로>/X.view.svelte (+필요시 X.live.svelte) — 접미사 의무, 무표 금지
+   routes/<경로>/X.view.svelte (+필요시 X.container.svelte) — 접미사 의무, 무표 금지
 ② 하강 관문: 둘째 소비자(다른 라우트·다른 slice)가 등장하는 순간에만 내린다
    ├─ 업무 개체의 표현·타입·API (명사)          → entities/<개체>   (ui는 view 전용)
    ├─ 사용자가 "하는 일" (동사 — 폼·다이얼로그·액션) → features/<동사구>
@@ -16,7 +16,7 @@
 ④ 회귀: 소비자가 라우트 1개로 줄면 콜로케이션으로 되돌린다 (arch:analyze INSIGNIFICANT_SLICE 신호)
 ```
 
-- entity ui에 live를 만들고 싶다 = **widget 승격 신호** (자기 데이터를 무는 블록의 FSD 정의가 widget).
+- entity ui에 container를 만들고 싶다 = **widget 승격 신호** (자기 데이터를 무는 블록의 FSD 정의가 widget).
 - 하강은 이동 + slice public API(index.ts) 개설 + 소비처 임포트 재작성을 **한 커밋**에.
 
 ## shared/ui 승격 관문 4테스트 (전부 통과해야 진입 — "shared/ui는 태어나지 않는다, 승격된다")

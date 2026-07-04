@@ -8,7 +8,7 @@ SliceSection — example slice 의 화면 루트. 역할 한 문장으로 교체
 	import EmptyState from '@/shared/ui/EmptyState.view.svelte';
 
 	type Props = {
-		/** undefined = 로딩 — live 의 pending 이 이 view 를 재사용해 스켈레톤을 그린다 */
+		/** undefined = 로딩 — container 의 pending 이 이 view 를 재사용해 스켈레톤을 그린다 */
 		items: Item[] | undefined;
 		/** mutation 은 콜백으로 위임 — view 는 remote 를 모른다 */
 		onDelete?: (id: string) => void;

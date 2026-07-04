@@ -1,9 +1,9 @@
 # svelte-arch
 
 **SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷.**
-FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/live 규율·실행형 매니페스트 발견성)을 자체 규범으로 채운다 — 목적은 하나, **같은 것을 두 번 만들지 않게** 하고 팀(사람+AI 에이전트)이 실수할 자리를 없앤다.
+FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·실행형 매니페스트 발견성)을 자체 규범으로 채운다 — 목적은 하나, **같은 것을 두 번 만들지 않게** 하고 팀(사람+AI 에이전트)이 실수할 자리를 없앤다.
 
-> A Feature-Sliced Design 2.1 advisor & injectable kit for SvelteKit — FSD layers/slices/segments translated into SvelteKit's official config surgery, plus the half FSD leaves blank: a server layer standard (remote→service→repository), a dumb/smart suffix overlay (.view/.live), and an executable manifest that feeds fresh metadata to LLM agents.
+> A Feature-Sliced Design 2.1 advisor & injectable kit for SvelteKit — FSD layers/slices/segments translated into SvelteKit's official config surgery, plus the half FSD leaves blank: a server layer standard (remote→service→repository), a dumb/smart suffix overlay (.view/.container), and an executable manifest that feeds fresh metadata to LLM agents.
 
 ## 4단 주소 체계
 
@@ -15,7 +15,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 | 계층 | 역할 |
 |---|---|
 | `src/app/` | 초기화 — index.html·hooks·app.css·**routes/**(글루 + pages first 콜로케이션) |
-| `src/widgets/` | 자립 대형 블록 (view/live 페어 = 독립 데이터 섬) |
+| `src/widgets/` | 자립 대형 블록 (view/container 페어 = 독립 데이터 섬) |
 | `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
 | `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model)·remote(api) |
 | `src/shared/` | 업무 무관 — ui(디자인 시스템)·vendor(shadcn 보존)·lib·model·config |
@@ -27,7 +27,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(50룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(51룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
 
 ## 빠른 시작
 

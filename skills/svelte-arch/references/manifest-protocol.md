@@ -1,4 +1,4 @@
-# 매니페스트 프로토콜 — 실행형 발견성 (v4 계층 뷰)
+# 매니페스트 프로토콜 — 실행형 발견성 (v5 계층 뷰)
 
 > "무엇이 있는가"는 파일이 아니라 실행이 답한다. LLM 주입이 1순위 소비자 — stale 0%가 존재 이유. slice public API는 경계 강제용, 발견성은 여기가 전담.
 
@@ -17,12 +17,12 @@ bun run arch:manifest -- --json           # 도구용
 헤더(버전 체인 노출점):
 
 ```text
-# arch-manifest · kit v4.0.0 · <프로젝트> · shared/ui 23 · widgets 6 · features 4 · entities 5 · server 7
+# arch-manifest · kit v5.0.0 · <프로젝트> · shared/ui 23 · widgets 6 · features 4 · entities 5 · server 7
 ```
 
 **shared/ui 엔트리** (상세 티어 — 분류 뷰): `### SearchInput · shared/ui · 소비 12곳 · 📖` + 역할 1행 + 사용 예 + 주입/양방향/콜백/스니펫/통과 분류(Props 선언에서 기계 도출 — `$bindable`=양방향, `Snippet`=스니펫, `on[A-Z]`=콜백, `...rest`=통과). **로컬 타입 별칭 인용**: props가 참조하는 같은 파일 `type X = …` 선언을 함께 인용(variant 값이 안 보이는 별칭 불투명 방지). parse-or-quote: 파싱 실패 시 원문 인용 + `⚠비정형`.
 
-**slice 엔트리** (1줄 티어): `knowledge-list · widgets · ⚡live · 📖 · <CLAUDE.md 1행> · 소비 N곳`
+**slice 엔트리** (1줄 티어): `knowledge-list · widgets · ⚡container · 📖 · <CLAUDE.md 1행> · 소비 N곳`
 
 **--slice 별첨** (한 주입에 관련 전부):
 1. 일치 slice들의 ui 상세(view Props) — 계층 표기

@@ -7,7 +7,7 @@
 		{
 			"name": "svelte-arch",
 			"source": "./",
-			"description": "SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷 — 계층·slice·segment 표준 구조를 SvelteKit 방언으로 완역하고(.view/.live 오버레이·서버 계층 포함), 실행형 매니페스트가 컴포넌트·서버 API 메타데이터를 LLM에 주입해 중복 생성을 차단한다."
+			"description": "SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷 — 계층·slice·segment 표준 구조를 SvelteKit 방언으로 완역하고(.view/.container 오버레이·서버 계층 포함), 실행형 매니페스트가 컴포넌트·서버 API 메타데이터를 LLM에 주입해 중복 생성을 차단한다."
 		}
 	]
 }

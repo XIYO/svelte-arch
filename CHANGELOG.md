@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.0.0 — 2026-07-04
+
+**접미사 표준화(BREAKING)** — smart 접미사 `.live.svelte` → `.container.svelte`로 개명. FSD 진영의 관용어(container/presentational)에 맞춰 dumb/smart 축을 부른다. `.view`는 이미 FSD 공식 블로그 관례와 일치했으나 `.live`는 자기설명적이지 않은 자체 조어였다.
+
+- **kindOf**: `.container.svelte`가 표준. `.live.svelte`는 같은 판정(이행기 페어·룰 적용 동일)을 받되 신설 `LEGACY_SUFFIX`(error)로 즉시 지목된다.
+- **룰 개명**: `LIVE_WITHOUT_PAIR`→`CONTAINER_WITHOUT_PAIR`, `LIVE_MARKUP`→`CONTAINER_MARKUP`, `LIVE_IMPORT_OUTSIDE_GLUE`→`CONTAINER_IMPORT_OUTSIDE_GLUE`. 위반 메시지·매니페스트·analyze 출력의 "live" 어휘 전부 "container"로. 51번째 룰 `LEGACY_SUFFIX` 신설(50→51).
+- **config**: `allow.liveOutsideGlue` → `allow.containerOutsideGlue`. 구키가 남아있으면 경고 후 값을 승계(1버전 한시 하위호환).
+- **kit**: `arch:new`(feature·widget 생성기)가 `.container.svelte` + `${Base}Container` 재수출을 생성. `kit/templates/SliceSection.live.svelte` → `SliceSection.container.svelte`.
+- **migrations/5.0.0.mjs 신설**: 소비 프로젝트의 `.live.svelte` → `.container.svelte` 전량 rename(git mv) + 소스·CLAUDE.md 안 문자열 치환(`XxxLive` 재수출 별칭 → `XxxContainer` 포함) + `config.mjs`의 `allow.liveOutsideGlue` 키 rename. 3계층 분류처럼 사람 판단이 필요 없는 기계적 변경이라 v3→v4와 달리 승인 없이 자동 실행. 멱등.
+- **INSIGNIFICANT_SLICE 정밀화**: inbound 소비자 집계에서 글루 계열(글루·글루서버·글루유니버설) 엣지를 제외 — 페이지 전속 위젯이 "소비 1곳"으로 오탐되던 것 해소(글루의 위젯 마운트는 steiger 원판에서도 소비로 세지 않는 취지).
+- **문서(constitution.md)**: public API(index) 절에 배럴 4원칙 명문화 — ① 배럴은 외부 실소비 진입점 + 계약 타입만 공개하는 화이트리스트 ② 조립 자식은 상대 import 전용·배럴 비공개 ③ 부품 세트 공개는 소비자 직접 조립 계약일 때만 ④ 단일 소비자 전용 파편은 그 소비자 slice로 배치 교정. `HEAVY_REEXPORT` 설명을 이 원칙 관점으로 정리(임계 로직 불변).
+
 ## 4.2.2 — 2026-07-04
 
 - audit: `SLICE_NAME_PARITY` 면제에 config `serverInfraSlices` 합류 — 선언된 서버 전용 엔진 slice는 클라 대응이 없는 게 정상인데 parity warn을 받던 비정합 해소. 위반 메시지에 선언 안내 추가.

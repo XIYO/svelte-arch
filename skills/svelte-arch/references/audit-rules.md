@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 50룰 (v4, steiger 흡수)
+# 감사 룰 매트릭스 — 51룰 (v5, steiger 흡수)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -14,32 +14,33 @@
 | `NO_SHARED_MEGA_BARREL` | shared/ui·shared/lib | 통합 배럴 — 딥 임포트만 (FSD 공식 처방 = Vite 성능 가이드) | error |
 | `DEEP_IMPORT_INTO_SLICE` | 전체 | 타 slice 내부 파일 직접 import — public API(index) 경유 의무. shared는 반대로 딥 의무 | error |
 | `SEGMENT_UNKNOWN` | slice·shared·pages | slice 내 ui·api·model·lib·config 외 폴더 / shared 루트의 ui·vendor·lib·model·config 외 폴더 / 닫힌 pages 계층에 파일 존재 | error |
-| `UNMARKED_COMPONENT` | 전 `.svelte` | 글루·`.view`·`.live`·`.stories` 외 — **routes 콜로케이션 포함**, vendor 면제 | error |
+| `UNMARKED_COMPONENT` | 전 `.svelte` | 글루·`.view`·`.container`·`.stories` 외 — **routes 콜로케이션 포함**, vendor 면제 | error |
 | `INSIGNIFICANT_SLICE` | sliced 계층 | 소비 파일 1개뿐인 slice → 콜로케이션 회귀 제안 (steiger 동명 룰) | warn |
-| `HEAVY_REEXPORT` | slice index | 재수출 12개 초과 — slice 분할 신호 | warn |
+| `HEAVY_REEXPORT` | slice index | 재수출 12개 초과 — 공개 계약 비대, 배럴 화이트리스트 원칙(constitution A5) 점검 신호. slice 분할 또는 단일 소비자 파편의 배치 교정으로 처방 | warn |
 
-## B군 — 품질 오버레이·클라 (22)
+## B군 — 품질 오버레이·클라 (23)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
-| `LIVE_WITHOUT_PAIR` | live | 같은 폴더 동일 Base `.view.svelte` 부재 | error |
-| `ENTITY_UI_VIEW_ONLY` | entities/ui | `.live` 존재 — live 욕구 = widget 승격 신호 | error |
-| `LIVE_MARKUP` | live | HTML 요소 태그 (boundary+페어+스니펫만) | error |
-| `LIVE_IMPORT_OUTSIDE_GLUE` | 전체 | `.live`를 글루 외 파일이 import (view는 Snippet 주입) | error |
-| `REMOTE_IN_VIEW` | view | `.remote` 값 import (live 페어가 배선) | error |
-| `STATE_MODULE_IN_VIEW` | view | `*.svelte.ts` 값 import (live 전용) | error |
+| `LEGACY_SUFFIX` | container | 파일명이 구표기 `.live.svelte` — `.container.svelte`로 개명 필요(v5) | error |
+| `CONTAINER_WITHOUT_PAIR` | container | 같은 폴더 동일 Base `.view.svelte` 부재 | error |
+| `ENTITY_UI_VIEW_ONLY` | entities/ui | `.container` 존재 — container 욕구 = widget 승격 신호 | error |
+| `CONTAINER_MARKUP` | container | HTML 요소 태그 (boundary+페어+스니펫만) | error |
+| `CONTAINER_IMPORT_OUTSIDE_GLUE` | 전체 | `.container`를 글루 외 파일이 import (view는 Snippet 주입) | error |
+| `REMOTE_IN_VIEW` | view | `.remote` 값 import (container 페어가 배선) | error |
+| `STATE_MODULE_IN_VIEW` | view | `*.svelte.ts` 값 import (container 전용) | error |
 | `APP_STATE_IN_VIEW` | view | `$app/state`·`$app/navigation` import — 외부 정본은 prop 주입 | error |
 | `GLUE_LOGIC` | +page/+layout/+error.svelte | `$state(`·`$effect`·remote import | error |
-| `SEGMENT_SUFFIX_MISMATCH` | 접미사 전종 | `.view/.live`가 ui·routes 콜로케이션 밖 / `.remote`가 api 밖 / `.svelte.ts`가 model 밖 / `.util`이 lib 밖 / `types.ts`가 model 밖 | error |
+| `SEGMENT_SUFFIX_MISMATCH` | 접미사 전종 | `.view/.container`가 ui·routes 콜로케이션 밖 / `.remote`가 api 밖 / `.svelte.ts`가 model 밖 / `.util`이 lib 밖 / `types.ts`가 model 밖 | error |
 | `SHARED_UI_PURITY` | shared/** | `$app/*`·`.remote`·server·업무 계층 import | error |
 | `DOMAIN_DEFAULT_IN_SHARED_UI` | shared/ui | 문구 prop 기본값에 비중립 어휘 (중립 목록 = config) | warn |
 | `CLASS_MERGE_IMPORT` | 팀 레이어 | cn/clsx/tailwind-merge/classnames import (vendor 면제) | error |
 | `TEMPLATE_LITERAL_CLASS` | view | `` class={`…${}`} `` 템플릿 합성 | error |
-| `STRING_CLASS_ON_COMPONENT` | view·live·글루 | 컴포넌트 태그 문자열 `class="…"` — 배열로 | error |
+| `STRING_CLASS_ON_COMPONENT` | view·container·글루 | 컴포넌트 태그 문자열 `class="…"` — 배열로 | error |
 | `DUPLICATE_ESCAPE_HATCH` | view | 동일 `*Class` 리터럴(토큰 정렬, ≥4토큰) 2파일+ | error |
 | `CLASS_CONST_EXPORT` | 팀 `.ts` | 클래스형 문자열(≥4토큰) 상수 export — 해치 세탁 | warn |
 | `MISSING_COMPONENT_DOC` | view | `<!-- @component -->` 부재 | error |
-| `UNNAMED_PROPS_TYPE` | view·live | `$props()` 인라인 타입 — `type Props` 명명 필수 | error |
+| `UNNAMED_PROPS_TYPE` | view·container | `$props()` 인라인 타입 — `type Props` 명명 필수 | error |
 | `UNDOCUMENTED_PROP` | shared/ui view | TSDoc 없는 prop (매니페스트 주입 품질) | warn |
 | `CALLBACK_NAME_STYLE` | view | 콜백 prop `on소문자` — camelCase `onXxx` | error |
 | `SET_PARTIAL_IMPORT` | 전체 | 세트 부품 부분 구조분해 — `import * as` 네임스페이스 의무 | error |
@@ -80,7 +81,7 @@
 
 ## 체크리스트 룰 (비자동 — 카드·리뷰·에이전트 워크플로우에서 확인, 13)
 
-① `$effect` 안 remote 호출 금지 ② command 후 무효화 query `refresh()` 명시 ③ remote `form().as()`는 네이티브 input만 ④ 상태 prop 표준명·`$bindable`은 value/open/ref만 ⑤ live ≈100줄+ → model `*.svelte.ts` 추출 ⑥ 수급 사다리 하강 사유(remote→universal→page.server→endpoint) ⑦ raw endpoint 합법 사유 5종 ⑧ push↔replace(탐색=push·연속 입력=replace) ⑨ replaceState hydration 가드 ⑩ env 해석은 `.config.ts` 소유 ⑪ wire 타입에 `$inferSelect` 재수출 금지 ⑫ CLAUDE.md 짧게(자동 로드 = 컨텍스트 비용) ⑬ vendor 흡수 시 cn·tv 제거 + 시각 스모크(§3.14 장기 조항)
+① `$effect` 안 remote 호출 금지 ② command 후 무효화 query `refresh()` 명시 ③ remote `form().as()`는 네이티브 input만 ④ 상태 prop 표준명·`$bindable`은 value/open/ref만 ⑤ container ≈100줄+ → model `*.svelte.ts` 추출 ⑥ 수급 사다리 하강 사유(remote→universal→page.server→endpoint) ⑦ raw endpoint 합법 사유 5종 ⑧ push↔replace(탐색=push·연속 입력=replace) ⑨ replaceState hydration 가드 ⑩ env 해석은 `.config.ts` 소유 ⑪ wire 타입에 `$inferSelect` 재수출 금지 ⑫ CLAUDE.md 짧게(자동 로드 = 컨텍스트 비용) ⑬ vendor 흡수 시 cn·tv 제거 + 시각 스모크(§3.14 장기 조항)
 
 ## 프로젝트 확장 (`.svelte-arch/config.mjs` — project-owned)
 
@@ -88,7 +89,7 @@
 export default {
 	layers: { pages: false },                 // pages 계층 개방 스위치
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '검색'],
-	allow: { crossSlice: [], liveOutsideGlue: [] }, // 이행기 전용 공개 부채 — 사유 주석 의무, 줄어들기만
+	allow: { crossSlice: [], containerOutsideGlue: [] }, // 이행기 전용 공개 부채 — 사유 주석 의무, 줄어들기만
 	heavyReexportMax: 12,                     // HEAVY_REEXPORT 임계 (slice index 재수출 상한)
 	rules: [ /* { code, desc, severity, kinds|where, pattern|check } — 승격 절차 5단계마다 +1 */ ]
 };
