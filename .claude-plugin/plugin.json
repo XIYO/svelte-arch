@@ -1,7 +1,7 @@
 {
 	"name": "svelte-arch",
 	"description": "SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷 (계층·slice·segment + .view/.live 오버레이 · 실행형 매니페스트 · 50룰 감사(steiger 흡수) · FSD 이행 plan)",
-	"version": "4.2.1",
+	"version": "4.2.2",
 	"author": {
 		"name": "XIYO"
 	},

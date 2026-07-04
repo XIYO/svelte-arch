@@ -59,7 +59,7 @@
 | `CROSS_SLICE_SERVER_IMPORT` | server/<slice> | 타 server slice 값 import. 면제 3종 = 인프라 대상(코어 shared·database·auth + config `serverInfraSlices`) · type-only · **service→타 slice repository**(§3.8 조합 정방향). service→service·repository→repository 등 나머지 수평은 금지 — 공용 모듈은 둘째 호출자 시점에 server/shared 이동 또는 인프라 선언 | error |
 | `ADAPTER_CONSUMER` | 전체 | `.adapter` 값 import가 service·repository·adapter 밖 | error |
 | `GUARD_OUTSIDE_BOUNDARY` | 전체 | `.guard` import가 remote·글루서버·endpoint·hooks 밖 | error |
-| `SLICE_NAME_PARITY` | server/<slice> | 대응하는 클라 slice명 부재 (entities 기준, shared·database·auth 면제) | warn |
+| `SLICE_NAME_PARITY` | server/<slice> | 대응하는 클라 slice명 부재 (entities 기준, 코어 shared·database·auth + config `serverInfraSlices` 면제) | warn |
 
 ## D군 — 글루서버 (2)
 

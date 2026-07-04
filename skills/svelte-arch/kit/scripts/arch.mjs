@@ -12,6 +12,15 @@
  *   bun arch.mjs new <shared-ui|entity|feature|widget|set|service|repository|adapter> …
  *   bun arch.mjs plan     [--apply] [--full] [--json]   # 구 구조 → FSD 이행 (승인 후에만 --apply)
  *   bun arch.mjs version
+ *
+ * 룰 저작 불변식 (위반 3계열이 실전에서 침묵·오탐을 만든 이력 — v4.1.1·v4.1.2·v4.2.1):
+ *   1. 구문 검사는 라인 단위 금지 — 포매터가 문장을 개행한다. content 전체 matchAll(문장 단위)로
+ *      매칭하고, 위반 라인은 match.index에서 역산한다. clause 문자 클래스를 좁혀 from 없는
+ *      문장을 넘어 삼키지 않게 한다.
+ *   2. 배럴은 불투명 벽이 아니다 — named import는 star 재수출까지 이름 단위로 해석해 실파일
+ *      가상 엣지를 만든다. 안 하면 index 경유 의무 좌표계에서 그래프 룰 전부가 무력화된다.
+ *   3. typeOnly는 문장 단위가 아니라 지정자 단위 — 인라인 `type X`·`export type {…} from`을
+ *      값 import로 오인하면 type-only 면제 룰이 오탐한다.
  */
 
 import { readdir, readFile, writeFile, mkdir, rename, unlink, rmdir } from 'node:fs/promises';
@@ -20,7 +29,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.2.1';
+const KIT_VERSION = '4.2.2';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -836,8 +845,8 @@ async function collectViolations(files, config, filesArg = null) {
 				if (!e.isDirectory()) continue;
 				if (!existsSync(join(ROOT, 'src/server', e.name, 'CLAUDE.md')))
 					out.push(v(`src/server/${e.name}/`, 1, 'CLAUDE.md 없음', 'MISSING_CLAUDE_MD', 'error', 'server slice 자기서술 의무'));
-				if (!['shared', 'database', 'auth'].includes(e.name) && ![...clientSlices].some((s) => s === e.name || s.includes(e.name) || e.name.includes(s)))
-					out.push(v(`src/server/${e.name}/`, 1, e.name, 'SLICE_NAME_PARITY', 'warn', '대응 클라 slice명 부재 — 이름 1:1 권장'));
+				if (!['shared', 'database', 'auth', ...config.serverInfraSlices].includes(e.name) && ![...clientSlices].some((s) => s === e.name || s.includes(e.name) || e.name.includes(s)))
+					out.push(v(`src/server/${e.name}/`, 1, e.name, 'SLICE_NAME_PARITY', 'warn', '대응 클라 slice명 부재 — 이름 1:1 권장 (서버 전용 엔진은 serverInfraSlices 선언)'));
 			}
 		}
 	}
