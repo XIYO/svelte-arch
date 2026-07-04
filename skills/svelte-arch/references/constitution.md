@@ -167,7 +167,7 @@ live·view 마운트, 라우트 파라미터 추출(`$derived(page.params.x)`)·
 
 ### 3.8 `*.service.ts` / `*.repository.ts` — 서버 로직
 
-service = 업무 규칙·트랜잭션 경계(여러 repository 조합·adapter 소비). repository = 데이터 접근(**schema 값 import 유일 합법처** — `SCHEMA_VALUE_OUTSIDE_REPOSITORY`, 시드도 예외 없음). 둘 다 SvelteKit(`$app/*`·`getRequestEvent`) import 금지(`SERVICE_SVELTEKIT_IMPORT`, `$env`는 허용하되 해석은 config 소유 권장). 위치 = `server/<slice|shared>/`(`SERVER_KIND_PLACEMENT`).
+service = 업무 규칙·트랜잭션 경계(여러 repository 조합·adapter 소비 — **타 slice repository 조합도 합법**: 도메인 규칙 소유자가 데이터 접근을 정방향으로 조합한다. 반대로 service→타 service·repository→타 repository 수평은 `CROSS_SLICE_SERVER_IMPORT` — 공용 능력은 server/shared 또는 인프라 선언(config `serverInfraSlices`)으로). repository = 데이터 접근(schema 값 import 합법처 — `SCHEMA_VALUE_OUTSIDE_REPOSITORY`. adapter의 db 클라이언트 조립도 합법, 시드도 예외 없음). 둘 다 SvelteKit(`$app/*`·`getRequestEvent`) import 금지(`SERVICE_SVELTEKIT_IMPORT`, `$env`는 허용하되 해석은 config 소유 권장). 위치 = `server/<slice|shared>/`(`SERVER_KIND_PLACEMENT`).
 
 ### 3.9 `*.adapter.ts` — 외부 시스템 어댑터
 

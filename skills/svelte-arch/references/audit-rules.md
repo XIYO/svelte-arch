@@ -55,8 +55,8 @@
 | `REMOTE_DB_IMPORT` | remote | db·schema·drizzle 값 import | error |
 | `REMOTE_VALUE_EXPORT` | remote | remote function(query/command/form/prerender) 외 값 export — 런타임 즉사 선제 차단. 타입은 합법 | error |
 | `SERVICE_SVELTEKIT_IMPORT` | service·repository | `$app/*`·`@sveltejs/kit`·`getRequestEvent` (`$env` 허용) | error |
-| `SCHEMA_VALUE_OUTSIDE_REPOSITORY` | 전체 | `.schema` 값 import가 repository·schema 밖 (시드 포함 예외 0 — type-only 자유) | error |
-| `CROSS_SLICE_SERVER_IMPORT` | server/<slice> | 타 server slice 값 import (shared·database·auth 인프라 slice 면제 — 둘째 호출자 시점에 shared로 이동) | error |
+| `SCHEMA_VALUE_OUTSIDE_REPOSITORY` | 전체 | `.schema` 값 import가 repository·schema·adapter 밖 (adapter = db 클라이언트 조립의 본질적 소비, 시드 포함 예외 0 — type-only 자유) | error |
+| `CROSS_SLICE_SERVER_IMPORT` | server/<slice> | 타 server slice 값 import. 면제 3종 = 인프라 대상(코어 shared·database·auth + config `serverInfraSlices`) · type-only · **service→타 slice repository**(§3.8 조합 정방향). service→service·repository→repository 등 나머지 수평은 금지 — 공용 모듈은 둘째 호출자 시점에 server/shared 이동 또는 인프라 선언 | error |
 | `ADAPTER_CONSUMER` | 전체 | `.adapter` 값 import가 service·repository·adapter 밖 | error |
 | `GUARD_OUTSIDE_BOUNDARY` | 전체 | `.guard` import가 remote·글루서버·endpoint·hooks 밖 | error |
 | `SLICE_NAME_PARITY` | server/<slice> | 대응하는 클라 slice명 부재 (entities 기준, shared·database·auth 면제) | warn |

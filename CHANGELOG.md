@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.2.0 — 2026-07-04
+
+**서버 수평 규칙 정밀화 — 헌법 §3.8과 정합.** 실전 서버는 도메인 service가 여러 slice의 repository를 조합해 오케스트레이션한다 — 전면 금지는 §3.8("service = 여러 repository 조합")과 상충했고, 기계적으로 따르면 도메인 모듈 대부분이 server/shared로 쏠려 slice 구조가 공동화된다.
+
+- audit: `CROSS_SLICE_SERVER_IMPORT` 면제 3종으로 재정의 — ① 인프라 대상(코어 shared·database·auth + 신설 config `serverInfraSlices`) ② type-only ③ **service→타 slice repository**(도메인 규칙 소유자의 데이터 접근 조합 = 정방향). service→service·repository→repository 등 나머지 수평은 여전히 금지 — 처방은 server/shared 이동 또는 인프라 선언.
+- config: `serverInfraSlices` 신설 — 도메인 어휘 없는 서버 전용 엔진 slice(예: llm·crypto·email)를 프로젝트가 선언해 대상 면제. 도메인 slice 등재는 규칙 무력화라 금지(템플릿 주석 명기).
+- audit: `SCHEMA_VALUE_OUTSIDE_REPOSITORY` 합법 소비자에 **adapter** 추가 — db 클라이언트(drizzle typed client) 조립은 adapter의 본질적 schema 소비(§3.9). 종전 규칙대로면 typed client 파일이 구조적으로 위반을 벗어날 수 없었다.
+- docs: constitution §3.8·§3.9 반영·audit-rules 해당 행 갱신.
+
 ## 4.1.2 — 2026-07-04
 
 - fix(audit): 임포트 그래프가 **여러 줄 import 문을 통째로 놓치던 집행 구멍** — 라인 단위 정규식이라 포매터가 개행한 `import Default, {\n type X\n} from '…'` 문이 그래프에 안 잡혀, 그 임포트에 걸리는 룰 전부(DEEP·CROSS_SLICE·CROSS_SLICE_SERVER·REMOTE_SKIPS_SERVICE 등)가 침묵했다. prettier 기본 printWidth에서 지정자 3개 이상이면 개행되므로 실전 코드의 상당수가 감사 밖이었던 치명 결함 — content 전체 문장 단위 매칭으로 교체(clause 문자 클래스를 식별자·중괄호·콤마·공백으로 한정해 `export const x = 1` 등 from 없는 문장을 넘어 삼키지 않음, 위반 라인 번호 = 문장 시작 라인).

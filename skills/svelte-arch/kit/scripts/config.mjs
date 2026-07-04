@@ -19,6 +19,12 @@ export default {
 		liveOutsideGlue: []
 	},
 
+	// 서버 인프라 slice 선언 — CROSS_SLICE_SERVER_IMPORT의 대상(target) 면제 목록.
+	// 코어 면제(shared·database·auth)에 더해진다. 도메인 어휘 없는 서버 전용 엔진만
+	// (예: 'llm', 'crypto', 'email'). 도메인 slice를 넣는 것은 규칙 무력화 — 그 경우 처방은
+	// server/shared 이동 또는 service→repository 조합(§3.8)이다.
+	serverInfraSlices: [],
+
 	// slice index 재수출 상한 (HEAVY_REEXPORT warn — 배럴 비대 = slice 분할 신호)
 	heavyReexportMax: 12,
 

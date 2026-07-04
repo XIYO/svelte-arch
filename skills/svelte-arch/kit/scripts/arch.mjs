@@ -20,7 +20,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '4.1.2';
+const KIT_VERSION = '4.2.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -37,6 +37,9 @@ const DEFAULT_CONFIG = {
 	layers: { pages: false },
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '삭제', '검색', '선택', '목록으로', '미리보기', '로딩 중…', '불러오는 중…', '검색 결과가 없습니다'],
 	allow: { crossSlice: [], liveOutsideGlue: [] },
+	// 서버 인프라 slice 선언 — 여기 등재된 slice는 CROSS_SLICE_SERVER_IMPORT의 대상(target) 면제.
+	// 코어 면제(shared·database·auth)에 더해진다. 도메인 어휘 없는 서버 전용 엔진(llm·crypto·email 등)용.
+	serverInfraSlices: [],
 	heavyReexportMax: 12,
 	rules: []
 };
@@ -597,12 +600,16 @@ async function collectViolations(files, config, filesArg = null) {
 			if (['repository', 'adapter'].includes(T.kind)) push(v(F, e.line, spec, 'REMOTE_SKIPS_SERVICE', 'error', 'remote → service만 (건너뛰기 0, 얇은 service를 감수)'));
 			if (T.kind === 'schema' || norm(T.rel).includes('server/database/')) push(v(F, e.line, spec, 'REMOTE_DB_IMPORT', 'error', 'remote의 db·schema 접근 — service 경유'));
 		}
-		// schema 값
-		if (T.kind === 'schema' && !e.typeOnly && !['repository', 'schema'].includes(F.kind))
-			push(v(F, e.line, spec, 'SCHEMA_VALUE_OUTSIDE_REPOSITORY', 'error', 'schema 값 import는 repository만 (시드 포함 예외 0 — type은 자유)'));
-		// server 수평 (shared·database·auth 는 인프라 slice — 수평 규칙 면제)
-		if (fl.area === 'server' && tl?.area === 'server' && fl.slice && tl.slice && fl.slice !== tl.slice && !['shared', 'database', 'auth'].includes(tl.slice) && !e.typeOnly)
-			push(v(F, e.line, spec, 'CROSS_SLICE_SERVER_IMPORT', 'error', `서버 slice 수평 import (${fl.slice}→${tl.slice}) — 둘째 호출자 시점에 server/shared로 이동`));
+		// schema 값 — adapter 포함: db 클라이언트(drizzle typed client) 조립은 adapter의 본질적 schema 소비(§3.9)
+		if (T.kind === 'schema' && !e.typeOnly && !['repository', 'schema', 'adapter'].includes(F.kind))
+			push(v(F, e.line, spec, 'SCHEMA_VALUE_OUTSIDE_REPOSITORY', 'error', 'schema 값 import는 repository·adapter만 (시드 포함 예외 0 — type은 자유)'));
+		// server 수평 — 면제 3종: ① 인프라 slice 대상(코어 shared·database·auth + config.serverInfraSlices)
+		// ② type-only ③ service→타 slice repository(§3.8 "service = 여러 repository 조합" — 도메인 규칙 소유자가
+		// 데이터 접근을 조합하는 정방향). service→service·repository→repository 등 나머지 수평은 여전히 금지.
+		if (fl.area === 'server' && tl?.area === 'server' && fl.slice && tl.slice && fl.slice !== tl.slice
+			&& !['shared', 'database', 'auth', ...config.serverInfraSlices].includes(tl.slice) && !e.typeOnly
+			&& !(F.kind === 'service' && T.kind === 'repository'))
+			push(v(F, e.line, spec, 'CROSS_SLICE_SERVER_IMPORT', 'error', `서버 slice 수평 import (${fl.slice}→${tl.slice}) — service의 타 slice repository 조합만 합법, 공용 모듈은 server/shared 또는 인프라 선언(serverInfraSlices)`));
 		// adapter·guard 소비자
 		if (T.kind === 'adapter' && !e.typeOnly && !['service', 'repository', 'adapter'].includes(F.kind))
 			push(v(F, e.line, spec, 'ADAPTER_CONSUMER', 'error', 'adapter 소비는 service·repository만'));
