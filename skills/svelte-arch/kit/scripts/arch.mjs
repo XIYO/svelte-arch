@@ -9,7 +9,7 @@
  *   bun arch.mjs manifest [--slice <이름|계층/이름>] [--detail <Base>] [--json]
  *   bun arch.mjs audit    [--files <p...>] [--json]
  *   bun arch.mjs analyze  [--json]
- *   bun arch.mjs new <shared-ui|entity|feature|widget|set|service|repository|adapter> …
+ *   bun arch.mjs new <shared-ui|entity|feature|widget|set|service|repository|adapter|port> …
  *   bun arch.mjs plan     [--apply] [--full] [--json]   # 구 구조 → FSD 이행 (승인 후에만 --apply)
  *   bun arch.mjs version
  *
@@ -29,7 +29,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.0.0';
+const KIT_VERSION = '5.1.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -128,6 +128,7 @@ function kindOf(rel) {
 	if (b.endsWith('.service.ts')) return 'service';
 	if (b.endsWith('.repository.ts')) return 'repository';
 	if (b.endsWith('.adapter.ts')) return 'adapter';
+	if (b.endsWith('.port.ts')) return 'port';
 	if (b.endsWith('.guard.ts')) return 'guard';
 	if (b.endsWith('.schema.ts')) return 'schema';
 	if (b.endsWith('.config.ts')) return 'config';
@@ -493,6 +494,9 @@ async function runManifest(args, config, files) {
 		for (const [slice, sfiles] of serverSlices) {
 			if (!slice.includes(qName)) continue;
 			out.push('', `## server/${slice} — 서버 API`);
+			for (const f of sfiles.filter((x) => x.kind === 'port')) {
+				out.push(`### ${basename(f.rel)} — port 계약(driven port 인터페이스 — service가 의존하는 타입 SSOT)`, f.content.trim());
+			}
 			for (const f of sfiles.filter((x) => ['service', 'repository'].includes(x.kind))) {
 				out.push(`### ${basename(f.rel)}`);
 				// TSDoc 그룹은 tempered — 내부에 */ 금지라 파일 헤더 블록코멘트가 함수 doc을 삼키지(브리지) 못한다
@@ -545,7 +549,7 @@ async function runManifest(args, config, files) {
 	return 0;
 }
 
-// ── audit — 50룰 ─────────────────────────────────────────────────────────
+// ── audit — 53룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
 const TEAM_SVELTE = new Set(['view', 'container', 'glue']);
 const GLUE_KINDS = new Set(['glue', 'glue-server', 'glue-universal']); // 라우트 글루 — 자기 페이지 전속 위젯 마운트는 INSIGNIFICANT_SLICE 소비로 세지 않는다
@@ -691,9 +695,9 @@ async function collectViolations(files, config, filesArg = null) {
 		if (kind === 'types' && loc.area === 'client' && loc.segment && loc.segment !== 'model')
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', 'types는 model segment에만'));
 		// 서버 배치
-		if (['service', 'repository', 'adapter', 'guard', 'schema'].includes(kind)) {
+		if (['service', 'repository', 'adapter', 'guard', 'schema', 'port'].includes(kind)) {
 			if (loc.area !== 'server') out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', `서버 종별(.${kind})은 src/server/** 의무 — 서버 전용 보호`));
-			else if (['service', 'repository', 'adapter'].includes(kind) && !loc.slice) out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', 'service·repository·adapter는 server/<slice|shared>/ 폴더 의무'));
+			else if (['service', 'repository', 'adapter', 'port'].includes(kind) && !loc.slice) out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', 'service·repository·adapter·port는 server/<slice|shared>/ 폴더 의무'));
 		}
 		// remote 값 export
 		if (kind === 'remote') {
@@ -706,6 +710,12 @@ async function collectViolations(files, config, filesArg = null) {
 			});
 			if (/getRequestEvent|\bdb\b\s*\./.test(f.content) && /from\s+['"][^'"]*database/.test(f.content))
 				out.push(v(f, 1, 'db 사용 흔적', 'REMOTE_DB_IMPORT', 'error', 'remote의 직접 쿼리 금지'));
+			// 입력 검증 — query/command 첫 인자가 (Standard Schema 없이) 파라미터 있는 함수면 경고.
+			// 스키마 우선(query(Schema, fn))·무인자(query(() => …))는 매칭 안 됨. 공개 HTTP 엔드포인트라 미검증 = 신뢰 경계 붕괴(DoS 실증).
+			for (const vm of f.content.matchAll(/\b(query|command)\s*\(\s*(?:async\s+)?\(\s*[^)\s]/g)) {
+				const ln = f.content.slice(0, vm.index).split('\n').length;
+				out.push(v(f, ln, vm[0].replace(/\s+/g, ' ').trim(), 'REMOTE_UNVALIDATED_INPUT', 'warn', `${vm[1]} 입력이 Standard Schema(Zod/Valibot) 검증 없이 노출 — 스키마를 첫 인자로 (공개 엔드포인트·미검증 DoS 실증)`));
+			}
 		}
 		if (['service', 'repository'].includes(kind)) {
 			f.lines.forEach((line, i) => {
@@ -719,6 +729,13 @@ async function collectViolations(files, config, filesArg = null) {
 			f.lines.forEach((line, i) => {
 				if (/^\s*export\s+(const|let|var|function|class|enum)\b/.test(line))
 					out.push(v(f, i + 1, line.trim(), 'TYPES_ONLY', 'error', '타입 전용 모듈의 런타임 export — union 타입·상수는 config로'));
+			});
+		}
+		// port = driven port 인터페이스(계약) — 런타임 값 export 금지(구현은 repository·adapter)
+		if (kind === 'port') {
+			f.lines.forEach((line, i) => {
+				if (/^\s*export\s+(const|let|var|function|class|enum)\b/.test(line))
+					out.push(v(f, i + 1, line.trim(), 'PORT_TYPES_ONLY', 'error', 'port는 인터페이스·타입 계약만 export — 런타임 값(구현)은 repository·adapter로'));
 			});
 		}
 		// 클래스 규약 (팀 svelte)
@@ -904,7 +921,7 @@ async function runAnalyze(args, config, files) {
 	const consumers = buildConsumerMap(files, edges);
 	const sharedUi = files.filter((f) => f.kind === 'view' && f.loc.layer === 'shared');
 	const R = { kit: KIT_VERSION };
-	R.kinds = Object.fromEntries(['view', 'container', 'glue', 'remote', 'service', 'repository', 'adapter', 'guard', 'state', 'util'].map((k) => [k, files.filter((f) => f.kind === k).length]));
+	R.kinds = Object.fromEntries(['view', 'container', 'glue', 'remote', 'service', 'repository', 'adapter', 'port', 'guard', 'state', 'util'].map((k) => [k, files.filter((f) => f.kind === k).length]));
 	R.orphans = sharedUi.filter((f) => (consumers.get(f.rel)?.size ?? 0) === 0).map((f) => baseOf(f.rel));
 	R.fatContainers = files.filter((f) => f.kind === 'container' && f.lines.length > 100).map((f) => `${f.rel} (${f.lines.length}줄)`);
 	const NATIVE = ['button', 'input', 'table', 'dialog', 'textarea', 'select', 'nav', 'progress'];
@@ -1030,7 +1047,7 @@ async function runNew(positionals) {
 		}
 		await write(`src/shared/ui/${setName}/index.ts`, parts.map((p) => `export { default as ${p} } from './${pascal}${p}.view.svelte';`).join('\n') + '\n');
 		await seedLayerClaude('shared');
-	} else if (['service', 'repository', 'adapter'].includes(cmd)) {
+	} else if (['service', 'repository', 'adapter', 'port'].includes(cmd)) {
 		const [slice, name] = rest;
 		if (!slice || !isKebab(slice)) return console.error(`사용법: new ${cmd} <slice> [Name]`), 1;
 		const t = await loadTemplate(`${cmd}.template.ts`);
@@ -1040,7 +1057,7 @@ async function runNew(positionals) {
 		await seedClaude(join(ROOT, 'src/server', slice), `${slice} 서버 slice`);
 		await write(`src/server/${slice}/${file}`, t.replaceAll('__slice__', slice));
 	} else {
-		console.error('사용법: new <shared-ui|entity|feature|widget|set|service|repository|adapter> …');
+		console.error('사용법: new <shared-ui|entity|feature|widget|set|service|repository|adapter|port> …');
 		return 1;
 	}
 	console.log('✓ 생성됨:');

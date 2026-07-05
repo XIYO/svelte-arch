@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.1.0 — 2026-07-05
+
+**서버 port 계층 + 리서치 기반 정합·중립화 (MINOR).** 권위 레퍼런스(헥사고날 ports&adapters·Clean·DDD, SvelteKit/Svelte 공식 문서) 딥리서치를 3-vote 적대검증으로 통과시킨 결과를 반영 — 서버 계층에 driven port 인터페이스를 1급으로 도입하고, 최신성·중립성 문서를 정합화. 전문·인용·정정이력 = `research/modernization-research-2026-07.md`.
+
+- **신규 `*.port.ts` 종별 + 룰 2개(51→53: `PORT_TYPES_ONLY` + 아래 `REMOTE_UNVALIDATED_INPUT`)**: driven port(계약 인터페이스). 런타임 값 export 금지 — 구현은 repository·adapter. service는 구상이 아니라 **인터페이스 타입에 의존** → in-memory 더블 주입으로 격리 테스트가 *실제로* 성립(A1 근거 실체화), ORM 교체 시 service·port 불변(도구 중립). `SERVER_KIND_PLACEMENT`에 port 편입(`server/<slice|shared>/` 의무). 근거 = Sairyss·Stemmler·Cockburn 만장일치 "repository는 인터페이스로 먼저".
+- **kit**: `arch:new port <slice>` 생성기 + `port.template.ts` 신설. `service`·`repository` 템플릿을 **port 조립 패턴**으로 개편(팩토리 `makeXxx(repo: Port)` + 기본 배선 `export const xxx = makeXxx(concreteRepo)`). 매니페스트 `--slice`가 port 계약(인터페이스 원문)을 별첨. 체크리스트 +2(13→15): repository/adapter는 대응 port `implements` · service는 port 타입으로 repo 수용.
+- **문서 정합·중립화(구조 무변)**: remote functions **experimental 명시**+버전고정+Standard Schema 검증 권고(svelte.dev·changelog 2.69.1·DoS CVE 검증 3-0) — 신규 `REMOTE_UNVALIDATED_INPUT`(warn)이 미검증 query/command 입력을 지목(스키마 우선·무인자 면제) · 서버 프레이밍 선형 3-tier→**inside/outside+ports**(Cockburn 3-0) · class 배열 근거 정직화(clsx 내장 vs tailwind-merge 트레이드오프) · dumb/smart 근거를 "업계 표준"→"remote/boundary 기계적 경계"로 전환(Abramov 2019 철회 인지) · FSD 2.1 pages-first 강화(entities **"Optional"**·advanced 후순위) · pages "닫힘≠생략" 명확화 · vendor 도구중립화(shadcn 일반화)+Tailwind v4(CSS-first·OKLCH·data-slot) · `<svelte:boundary>` 한계·Mapper 경계 명문화.
+- **검증 정정**: 초안의 "pages 계층 드롭"·"FSD가 dumb/smart 공식 폐기" 2건은 적대검증에서 refute → 리포트·규범 모두 정정(svelte-arch는 pages를 보유·닫힘; dumb/smart 폐기는 Abramov·patterns.dev만 근거).
+
 ## 5.0.0 — 2026-07-04
 
 **접미사 표준화(BREAKING)** — smart 접미사 `.live.svelte` → `.container.svelte`로 개명. FSD 진영의 관용어(container/presentational)에 맞춰 dumb/smart 축을 부른다. `.view`는 이미 FSD 공식 블로그 관례와 일치했으나 `.live`는 자기설명적이지 않은 자체 조어였다.

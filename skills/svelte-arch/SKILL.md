@@ -27,11 +27,11 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 | `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
 | `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model/types)·remote(api) |
 | `src/shared/` | 업무 무관 — `ui/`(디자인 시스템)·`vendor/`(shadcn 원본 보존)·`lib/`·`model/`·`config/` |
-| `src/server/` | FSD 밖 병렬 스택 — `<slice>/`에 service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
+| `src/server/` | FSD 밖 병렬 스택 — `<slice>/`에 port(계약 인터페이스)·service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
 
 **segment**: `ui/`(`.view`+`.container` 페어) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
 
-**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.container`(smart — remote 결합, 마크업 0. FSD 진영 관용어 container/presentational과 정렬 — 구표기 `.live`는 폐기, `LEGACY_SUFFIX`) · `.stories` · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
+**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.container`(smart — remote 결합, 마크업 0. 근거 = remote/`<svelte:boundary>` 결합의 **기계적 경계**이지 "업계 표준이라서"가 아님 — Abramov 2019 철회 인지, fsd-guide §6. 구표기 `.live` 폐기 = `LEGACY_SUFFIX`) · `.stories` · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.port`(계약 인터페이스, 타입만) · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
 
 ## 배치 사다리 (pages first — 이 스킬의 심장)
 
@@ -50,14 +50,14 @@ entity의 ui에 container를 만들고 싶다 = widget 승격 신호(entities/ui
 
 1. **몰라서 만든다** → `bun run arch:manifest`가 shared/ui API 전체 + `--slice <이름>`으로 관련 slice·서버 API·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(있으면 소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(50룰, steiger 흡수)이 커밋을 차단 (pre-commit)
+3. **그래도 만들면** → `bun run arch:audit`(53룰, steiger 흡수)이 커밋을 차단 (pre-commit)
 
 ## 프로토콜 — 작업 전 의무 실행
 
 ```bash
 bun run arch:manifest                        # shared/ui 상세 + 전 계층 slice 요약
 bun run arch:manifest -- --slice <이름>      # 관련 slice 스윕 + server API + wire 타입 원문
-bun run arch:new -- <shared-ui|entity|feature|widget|set|service|repository|adapter> …
+bun run arch:new -- <shared-ui|entity|feature|widget|set|service|repository|adapter|port> …
 bun run arch:analyze                         # 진화 신호: 고아·해치 클러스터·INSIGNIFICANT
 bun run arch:plan [-- --apply]               # 구 구조 → FSD 이행 제안표 (승인 후에만 --apply)
 bun run arch:audit                           # 커밋 전 (pre-commit 자동)
@@ -110,5 +110,6 @@ UI·서버 작업 감지
 - **view가 `$app/state`로 URL을 읽는다** — 외부 정본은 prop 주입(`active` 등). container·글루 소관.
 - **`.live.svelte` 잔존** — kit v5 구표기, `LEGACY_SUFFIX`가 즉시 지목. 신규는 처음부터 `.container.svelte`, 기존 프로젝트는 `init.mjs` 재실행 시 `migrations/5.0.0.mjs`가 자동 rename.
 - **remote에 값 export** — remote function 외 값 export는 서버 트랜스폼에서 즉사. 타입은 합법.
+- **remote를 stable로 취급** — SvelteKit remote functions는 **experimental**(opt-in flags·"subject to change"·minor 간 breaking 이력). SvelteKit **버전 고정** + remote 경계는 **Standard Schema(Zod) 검증**(공개 HTTP 엔드포인트 — 미검증 DoS 실증 사례).
 - **`cn()`·템플릿 리터럴 클래스** — 내장 `class={[...]}` 배열만 (vendor 내부만 예외).
 - **+page.server.ts에서 데이터 로딩** — 가드·메타 전용. 수급 사다리: remote → universal load → +page.server → raw endpoint.

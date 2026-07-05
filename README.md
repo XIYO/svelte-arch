@@ -19,7 +19,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 | `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
 | `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model)·remote(api) |
 | `src/shared/` | 업무 무관 — ui(디자인 시스템)·vendor(shadcn 보존)·lib·model·config |
-| `src/server/` | FSD 밖 병렬 스택(`$lib/server` 보호) — slice별 service·repository·adapter |
+| `src/server/` | FSD 밖 병렬 스택(`$lib/server` 보호) — slice별 port(계약)·service·repository·adapter |
 
 핵심 규칙: 계층은 아래로만 · 같은 계층 slice 수평 금지 · slice 소비는 public API(index)로만, shared는 딥 임포트만 · remote → service만(건너뛰기 0) · 클래스는 내장 `class={[...]}` 배열만 · **배치 사다리** = 새 코드는 라우트 콜로케이션에서 태어나 둘째 소비자가 생길 때만 하강(FSD 2.1 pages first).
 
@@ -27,7 +27,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(51룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(53룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
 
 ## 빠른 시작
 
@@ -55,7 +55,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 ```text
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 50룰·매니페스트·도입·kit
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 53룰·매니페스트·도입·kit
 └── kit/              # init.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 

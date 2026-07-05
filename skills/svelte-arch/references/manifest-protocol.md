@@ -17,7 +17,7 @@ bun run arch:manifest -- --json           # 도구용
 헤더(버전 체인 노출점):
 
 ```text
-# arch-manifest · kit v5.0.0 · <프로젝트> · shared/ui 23 · widgets 6 · features 4 · entities 5 · server 7
+# arch-manifest · kit v5.1.0 · <프로젝트> · shared/ui 23 · widgets 6 · features 4 · entities 5 · server 7
 ```
 
 **shared/ui 엔트리** (상세 티어 — 분류 뷰): `### SearchInput · shared/ui · 소비 12곳 · 📖` + 역할 1행 + 사용 예 + 주입/양방향/콜백/스니펫/통과 분류(Props 선언에서 기계 도출 — `$bindable`=양방향, `Snippet`=스니펫, `on[A-Z]`=콜백, `...rest`=통과). **로컬 타입 별칭 인용**: props가 참조하는 같은 파일 `type X = …` 선언을 함께 인용(variant 값이 안 보이는 별칭 불투명 방지). parse-or-quote: 파싱 실패 시 원문 인용 + `⚠비정형`.
@@ -28,7 +28,7 @@ bun run arch:manifest -- --json           # 도구용
 1. 일치 slice들의 ui 상세(view Props) — 계층 표기
 2. `api/*.remote.ts`의 export 시그니처 + 로컬 export interface 원문
 3. `model/types.ts` **원문 인용** (wire 타입 — 추출기는 타입 해석기가 아니다, 인용으로 해결)
-4. `server/<이름>/`의 service·repository **export 함수 시그니처**(이름·파라미터·반환·TSDoc 1행) — 서버 중복 생성 방지
+4. `server/<이름>/`의 **port 계약(인터페이스 원문)** + service·repository **export 함수 시그니처**(이름·파라미터·반환·TSDoc 1행) — 서버 중복 생성 방지
 5. import type 그래프 추적: remote가 참조하는 `shared/model` 파일도 별첨
 
 ## 소스 측 추출 앵커 (작성 규약 — 미적 규칙이 아니라 기능 규칙)

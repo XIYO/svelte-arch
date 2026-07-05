@@ -8,7 +8,7 @@
 ① 출생: 모든 새 코드는 라우트 콜로케이션에서 태어난다
    routes/<경로>/X.view.svelte (+필요시 X.container.svelte) — 접미사 의무, 무표 금지
 ② 하강 관문: 둘째 소비자(다른 라우트·다른 slice)가 등장하는 순간에만 내린다
-   ├─ 업무 개체의 표현·타입·API (명사)          → entities/<개체>   (ui는 view 전용)
+   ├─ 업무 개체의 표현·타입·API (명사)          → entities/<개체>   (ui는 view 전용 · FSD 2.1에서 entities는 "Optional" — 억지 배치 금지, 재사용 실증 시에만)
    ├─ 사용자가 "하는 일" (동사 — 폼·다이얼로그·액션) → features/<동사구>
    ├─ 여러 entity·feature의 자립 조립 블록          → widgets/<블록>
    └─ 업무 어휘 0 + 승격 4테스트 전부 통과          → shared/ui

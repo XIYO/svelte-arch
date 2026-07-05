@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 51룰 (v5, steiger 흡수)
+# 감사 룰 매트릭스 — 53룰 (v5.1, steiger 흡수 + 서버 port + remote 입력검증)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -46,14 +46,16 @@
 | `SET_PARTIAL_IMPORT` | 전체 | 세트 부품 부분 구조분해 — `import * as` 네임스페이스 의무 | error |
 | `VENDOR_IMPORT` | 전체 | `shared/vendor` 소비가 shared/ui 래핑 밖 | error |
 
-## C군 — 서버 (11)
+## C군 — 서버 (13)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
-| `SERVER_KIND_PLACEMENT` | service·repository·adapter·guard·schema·config | `src/server/**` 밖 (서버 전용 보호 상실) + service·repository·adapter는 `server/<slice|shared>/` 밖 | error |
+| `SERVER_KIND_PLACEMENT` | service·repository·adapter·port·guard·schema·config | `src/server/**` 밖 (서버 전용 보호 상실) + service·repository·adapter·port는 `server/<slice|shared>/` 밖 | error |
+| `PORT_TYPES_ONLY` | port | `.port.ts`의 런타임 값 export — driven port는 인터페이스·타입 계약만(구현은 repository·adapter). service가 인터페이스에 의존해 in-memory 교체·격리 테스트 성립 | error |
 | `SERVER_BOUNDARY` | 전체 | `src/server/**` 값 import가 remote·글루서버·endpoint·hooks 밖 | error |
 | `REMOTE_SKIPS_SERVICE` | remote | `.repository`·`.adapter` 값 import — 건너뛰기 0, 예외 없음 | error |
 | `REMOTE_DB_IMPORT` | remote | db·schema·drizzle 값 import | error |
+| `REMOTE_UNVALIDATED_INPUT` | remote | query/command 첫 인자가 Standard Schema(Zod/Valibot) 없이 파라미터를 받는 함수 (스키마 우선·무인자 함수는 면제) — 공개 HTTP 엔드포인트, 미검증 DoS 실증 | warn |
 | `REMOTE_VALUE_EXPORT` | remote | remote function(query/command/form/prerender) 외 값 export — 런타임 즉사 선제 차단. 타입은 합법 | error |
 | `SERVICE_SVELTEKIT_IMPORT` | service·repository | `$app/*`·`@sveltejs/kit`·`getRequestEvent` (`$env` 허용) | error |
 | `SCHEMA_VALUE_OUTSIDE_REPOSITORY` | 전체 | `.schema` 값 import가 repository·schema·adapter 밖 (adapter = db 클라이언트 조립의 본질적 소비, 시드 포함 예외 0 — type-only 자유) | error |
@@ -79,9 +81,9 @@
 | `MISSING_CLAUDE_MD` | 계층·slice 루트 | CLAUDE.md 부재 (segment 면제 — kit이 씨앗 생성) | error |
 | `SPEC_PLACEMENT` | src 안 spec | 같은 폴더에 동일 Base 검증 대상 부재 — 유닛 spec은 콜로케이션 의무, 통합=최상위 `tests/`·e2e=최상위 `e2e/`(src 밖) | error |
 
-## 체크리스트 룰 (비자동 — 카드·리뷰·에이전트 워크플로우에서 확인, 13)
+## 체크리스트 룰 (비자동 — 카드·리뷰·에이전트 워크플로우에서 확인, 15)
 
-① `$effect` 안 remote 호출 금지 ② command 후 무효화 query `refresh()` 명시 ③ remote `form().as()`는 네이티브 input만 ④ 상태 prop 표준명·`$bindable`은 value/open/ref만 ⑤ container ≈100줄+ → model `*.svelte.ts` 추출 ⑥ 수급 사다리 하강 사유(remote→universal→page.server→endpoint) ⑦ raw endpoint 합법 사유 5종 ⑧ push↔replace(탐색=push·연속 입력=replace) ⑨ replaceState hydration 가드 ⑩ env 해석은 `.config.ts` 소유 ⑪ wire 타입에 `$inferSelect` 재수출 금지 ⑫ CLAUDE.md 짧게(자동 로드 = 컨텍스트 비용) ⑬ vendor 흡수 시 cn·tv 제거 + 시각 스모크(§3.14 장기 조항)
+① `$effect` 안 remote 호출 금지 ② command 후 무효화 query `refresh()` 명시 ③ remote `form().as()`는 네이티브 input만 ④ 상태 prop 표준명·`$bindable`은 value/open/ref만 ⑤ container ≈100줄+ → model `*.svelte.ts` 추출 ⑥ 수급 사다리 하강 사유(remote→universal→page.server→endpoint) ⑦ raw endpoint 합법 사유 5종 ⑧ push↔replace(탐색=push·연속 입력=replace) ⑨ replaceState hydration 가드 ⑩ env 해석은 `.config.ts` 소유 ⑪ wire 타입에 `$inferSelect` 재수출 금지 ⑫ CLAUDE.md 짧게(자동 로드 = 컨텍스트 비용) ⑬ vendor 흡수 시 cn·tv 제거 + Tailwind v4(CSS-first `@theme`·OKLCH·`data-slot`) 반영 + 시각 스모크(§3.14 장기 조항) ⑭ repository·adapter는 대응 `*.port.ts` 인터페이스를 `implements` ⑮ service 유스케이스는 port 타입으로 repository를 받는다(구상 값 직결은 조립 지점=기본 배선에서만)
 
 ## 프로젝트 확장 (`.svelte-arch/config.mjs` — project-owned)
 
