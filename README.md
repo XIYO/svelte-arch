@@ -52,15 +52,16 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 
 ### 릴리스 버전 동기화 가드 (저장소 기여자용)
 
-이 저장소의 릴리스 버전은 세 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 `/plugin`이 옛 버전을 보고한다(실제로 `plugin.json`이 5.1.0에 방치된 적 있음):
+이 저장소의 릴리스 버전은 네 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 `/plugin`이 옛 버전을 보고하거나(`plugin.json` 방치) 설치본과 소스가 어긋난다:
 
 | 소스 | 위치 |
 | --- | --- |
+| `kit/VERSION` | **SSOT** — `sync.mjs`가 런타임에 읽는 값 |
+| `arch.mjs` `KIT_VERSION` | 하드코딩(설치본 `.svelte-arch/arch.mjs` 자기완결 — audit·마커에 노출) |
 | `plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
-| `arch.mjs` `KIT_VERSION` | audit·매니페스트·설치 마커에 노출 |
 | `CHANGELOG.md` 최상단 `## X.Y.Z` | 릴리스 기록 |
 
-`scripts/check-version-sync.mjs`가 셋의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
+`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 넷의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
 
 ```bash
 git config core.hooksPath .githooks
