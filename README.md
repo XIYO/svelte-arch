@@ -27,7 +27,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(53룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(55룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
 
 ## 빠른 시작
 
@@ -37,8 +37,8 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 /plugin install svelte-arch@svelte-arch
 
 # 아무 SvelteKit 프로젝트에서 — 설치·업데이트·마이그레이션이 한 명령
-bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
-# 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘"
+bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
+# 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘" (/arch-sync)
 ```
 
 설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice CLAUDE.md 씨앗(없는 곳만). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
@@ -48,15 +48,34 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 ## 버전·업데이트
 
 - 설치 버전 = `.svelte-arch/arch.mjs` 헤더(파일이 곧 상태), 매니페스트 1행에 노출 → 에이전트가 드리프트 자동 감지.
-- `init.mjs` 재실행 = 업데이트. semver: MAJOR=비호환(마이그레이션 또는 승인형 plan 경로 동봉) · MINOR=룰 추가 · PATCH=수정.
+- `arch-sync`(`sync.mjs`) 재실행 = 업데이트. semver: MAJOR=비호환(마이그레이션 또는 승인형 plan 경로 동봉) · MINOR=룰 추가 · PATCH=수정.
+
+### 릴리스 버전 동기화 가드 (저장소 기여자용)
+
+이 저장소의 릴리스 버전은 네 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 `/plugin`이 옛 버전을 보고하거나(`plugin.json` 방치) 설치본과 소스가 어긋난다:
+
+| 소스 | 위치 |
+| --- | --- |
+| `kit/VERSION` | **SSOT** — `sync.mjs`가 런타임에 읽는 값 |
+| `arch.mjs` `KIT_VERSION` | 하드코딩(설치본 `.svelte-arch/arch.mjs` 자기완결 — audit·마커에 노출) |
+| `plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
+| `CHANGELOG.md` 최상단 `## X.Y.Z` | 릴리스 기록 |
+
+`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 넷의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+수동 실행: `bun scripts/check-version-sync.mjs`. 릴리스 시 세 곳을 같은 버전으로 올린 뒤 push 한다.
 
 ## 구성
 
 ```text
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 53룰·매니페스트·도입·kit
-└── kit/              # init.mjs·arch.mjs(CLI)·템플릿·마이그레이션
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 55룰·매니페스트·도입·kit
+└── kit/              # sync.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 
 ## License

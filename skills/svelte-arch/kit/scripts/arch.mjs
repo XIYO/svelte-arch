@@ -8,6 +8,7 @@
  * 사용:
  *   bun arch.mjs manifest [--slice <이름|계층/이름>] [--detail <Base>] [--json]
  *   bun arch.mjs audit    [--files <p...>] [--json]
+ *   bun arch.mjs verify   [--json]
  *   bun arch.mjs analyze  [--json]
  *   bun arch.mjs new <shared-ui|entity|feature|widget|set|service|repository|adapter|port> …
  *   bun arch.mjs plan     [--apply] [--full] [--json]   # 구 구조 → FSD 이행 (승인 후에만 --apply)
@@ -29,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.1.0';
+const KIT_VERSION = '5.4.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -549,7 +550,7 @@ async function runManifest(args, config, files) {
 	return 0;
 }
 
-// ── audit — 53룰 ─────────────────────────────────────────────────────────
+// ── audit — 55룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
 const TEAM_SVELTE = new Set(['view', 'container', 'glue']);
 const GLUE_KINDS = new Set(['glue', 'glue-server', 'glue-universal']); // 라우트 글루 — 자기 페이지 전속 위젯 마운트는 INSIGNIFICANT_SLICE 소비로 세지 않는다
@@ -764,6 +765,8 @@ async function collectViolations(files, config, filesArg = null) {
 			if (p && !p.irregular) {
 				for (const mem of p.members.filter((x) => /^on[a-z]/.test(x.name) && x.type.includes('=>')))
 					out.push(v(f, 1, `${mem.name} → on${mem.name[2]?.toUpperCase()}${mem.name.slice(3)}`, 'CALLBACK_NAME_STYLE', 'error', '콜백 prop은 camelCase onXxx'));
+				for (const mem of p.members.filter((x) => /^(class|.*Class)$/.test(x.name) && /^string(\s*\|\s*(undefined|null))*$/.test(x.type.trim())))
+					out.push(v(f, 1, `${mem.name}: ${mem.type}`, 'CLASS_PROP_STRING_TYPE', 'warn', 'class류 prop은 string 대신 ClassValue(svelte/elements) — A9 배열 규약과 정합'));
 				if (loc.layer === 'shared')
 					for (const mem of p.members.filter((x) => !x.doc))
 						out.push(v(f, 1, mem.name, 'UNDOCUMENTED_PROP', 'warn', 'shared/ui는 전 prop TSDoc 의무 (매니페스트 품질)'));
@@ -781,6 +784,21 @@ async function collectViolations(files, config, filesArg = null) {
 		// 세트 부분 구조분해
 		if (/import\s*\{[^}]*\}\s*from\s+['"][@$][^'"]*shared\/ui\/[^/'".]+['"]/.test(f.content))
 			f.lines.forEach((line, i) => { if (/import\s*\{[^}]*\}\s*from\s+['"][@$][^'"]*shared\/ui\/[^/'".]+['"]/.test(line)) out.push(v(f, i + 1, line.trim(), 'SET_PARTIAL_IMPORT', 'error', '세트는 import * as 네임스페이스 의무')); });
+		// 내부 링크 resolve() 누락 (A11)
+		{
+			const isAssetOrExternal = (p) => /\.[a-zA-Z0-9]{2,5}(?:[?#].*)?$/.test(p);
+			const lineOf = (idx) => f.content.slice(0, idx).split('\n').length;
+			for (const m of f.content.matchAll(/<a\b[^>]*\bhref\s*=\s*"\/(?!\/)([^"]*)"/g))
+				if (!isAssetOrExternal(m[1])) out.push(v(f, lineOf(m.index), m[0].slice(0, 80), 'UNRESOLVED_INTERNAL_LINK', 'error', '<a href>의 내부 절대경로 문자열 리터럴 — resolve() 경유 의무 (A11)'));
+			for (const m of f.content.matchAll(/<form\b[^>]*\baction\s*=\s*"\/(?!\/)([^"]*)"/g))
+				if (!isAssetOrExternal(m[1])) out.push(v(f, lineOf(m.index), m[0].slice(0, 80), 'UNRESOLVED_INTERNAL_LINK', 'error', '<form action>의 내부 절대경로 문자열 리터럴 — resolve() 경유 의무 (A11)'));
+			if (/from\s+['"]\$app\/navigation['"]/.test(f.content))
+				for (const m of f.content.matchAll(/\bgoto\s*\(\s*(['"])\/(?!\/)([^'"]*)\1/g))
+					if (!isAssetOrExternal(m[2])) out.push(v(f, lineOf(m.index), m[0].slice(0, 80), 'UNRESOLVED_INTERNAL_LINK', 'error', 'goto()의 내부 절대경로 문자열 리터럴 — resolve() 경유 의무 (A11)'));
+			if (/from\s+['"]@sveltejs\/kit['"]/.test(f.content))
+				for (const m of f.content.matchAll(/\bredirect\s*\(\s*\d+\s*,\s*(['"])\/(?!\/)([^'"]*)\1/g))
+					if (!isAssetOrExternal(m[2])) out.push(v(f, lineOf(m.index), m[0].slice(0, 80), 'UNRESOLVED_INTERNAL_LINK', 'error', 'redirect()의 내부 절대경로 문자열 리터럴 — resolve() 경유 의무 (A11)'));
+		}
 		// 클래스 상수 세탁 (팀 ts)
 		if (['util', 'config', 'unmarked-ts', 'state'].includes(kind) && loc.area === 'client' && !loc.vendor) {
 			f.lines.forEach((line, i) => {
@@ -896,6 +914,10 @@ async function collectViolations(files, config, filesArg = null) {
 }
 
 async function runAudit(args, config, files) {
+	if (!args.has('--json')) {
+		const verifyFails = (await collectVerifyChecks()).filter((c) => !c.ok);
+		if (verifyFails.length) console.log(`\x1b[33m⚠ 설치 무결손 ${verifyFails.length}건 — bun .svelte-arch/arch.mjs verify 로 확인\x1b[0m\n`);
+	}
 	const filesArg = args.getList('--files');
 	const violations = await collectViolations(files, config, filesArg);
 	if (args.has('--json')) console.log(JSON.stringify(violations, null, 2));
@@ -913,6 +935,57 @@ function printAudit(violations) {
 	}
 	const e = violations.filter((x) => x.severity === 'error').length;
 	console.log(`\n총 \x1b[31m${e}\x1b[0m error, \x1b[33m${violations.length - e}\x1b[0m warning (kit v${KIT_VERSION})`);
+}
+
+// ── verify — 설치 풋프린트 버전·무결손 검증 ─────────────────────────────
+async function collectVerifyChecks() {
+	const checks = [];
+	const readIfExists = async (p) => (existsSync(p) ? await readFile(p, 'utf-8') : null);
+
+	const claudeMd = await readIfExists(join(ROOT, 'CLAUDE.md'));
+	const claudeM = claudeMd?.match(/svelte-arch:begin\s*\(kit v([\d.]+)/);
+	checks.push(claudeM
+		? { name: 'CLAUDE.md 마커 블록', ok: claudeM[1] === KIT_VERSION, detail: `v${claudeM[1]}` }
+		: { name: 'CLAUDE.md 마커 블록', ok: false, detail: '마커 블록 없음' });
+
+	let hooksPath = '.githooks';
+	try { hooksPath = execSync('git config core.hooksPath', { cwd: ROOT }).toString().trim() || hooksPath; } catch { /* 미설정 — 기본값 사용 */ }
+	const hook = await readIfExists(join(ROOT, hooksPath, 'pre-commit'));
+	const hookM = hook?.match(/svelte-arch:begin\s*\(kit v([\d.]+)/);
+	checks.push(hookM
+		? { name: `${hooksPath}/pre-commit 마커 블록`, ok: hookM[1] === KIT_VERSION, detail: `v${hookM[1]}` }
+		: { name: `${hooksPath}/pre-commit 마커 블록`, ok: false, detail: '마커 블록 없음' });
+
+	checks.push({ name: '.svelte-arch/config.mjs', ok: existsSync(join(ROOT, '.svelte-arch/config.mjs')), detail: '' });
+	checks.push({ name: '.svelte-arch/templates/', ok: existsSync(join(ROOT, '.svelte-arch/templates')), detail: '' });
+
+	const want = {
+		'arch:manifest': 'bun .svelte-arch/arch.mjs manifest',
+		'arch:audit': 'bun .svelte-arch/arch.mjs audit',
+		'arch:analyze': 'bun .svelte-arch/arch.mjs analyze',
+		'arch:new': 'bun .svelte-arch/arch.mjs new',
+		'arch:plan': 'bun .svelte-arch/arch.mjs plan'
+	};
+	const pkgRaw = await readIfExists(join(ROOT, 'package.json'));
+	const scripts = pkgRaw ? (JSON.parse(pkgRaw).scripts ?? {}) : {};
+	const missing = Object.entries(want).filter(([k, v2]) => scripts[k] !== v2).map(([k]) => k);
+	checks.push({ name: 'package.json scripts', ok: missing.length === 0, detail: missing.length ? `불일치: ${missing.join(', ')}` : `${Object.keys(want).length}/${Object.keys(want).length}` });
+
+	return checks;
+}
+
+async function runVerify(args) {
+	const checks = await collectVerifyChecks();
+	const fail = checks.filter((c) => !c.ok);
+	if (args?.has('--json')) {
+		console.log(JSON.stringify({ kit: KIT_VERSION, checks, ok: fail.length === 0 }, null, 2));
+		return fail.length ? 1 : 0;
+	}
+	for (const c of checks) console.log(`${c.ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${c.name}${c.detail ? ` (${c.detail})` : ''}`);
+	console.log(fail.length
+		? `\n${fail.length}건 불일치 — arch-sync 재실행 필요 (bun <플러그인경로>/skills/svelte-arch/kit/sync.mjs)`
+		: `\n✓ 설치 무결손 확인 (kit v${KIT_VERSION})`);
+	return fail.length ? 1 : 0;
 }
 
 // ── analyze ──────────────────────────────────────────────────────────────
@@ -966,7 +1039,7 @@ async function assertUniqueBase(base) {
 const isPascal = (s) => /^[A-Z][A-Za-z0-9]*$/.test(s);
 const isKebab = (s) => /^[a-z][a-z0-9-]*$/.test(s);
 
-// 계층 루트 역할 1행 (init.mjs LAYER_ROLES와 동일 문안) — new·plan이 계층을 새로 만들 때도 시드해
+// 계층 루트 역할 1행 (sync.mjs LAYER_ROLES와 동일 문안) — new·plan이 계층을 새로 만들 때도 시드해
 // "생성 직후 자체 감사(MISSING_CLAUDE_MD) 실패"가 없게 한다.
 const LAYER_ROLES = {
 	app: '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
@@ -1380,12 +1453,13 @@ async function main() {
 	const positionals = rest.filter((a) => !a.startsWith('--') && !(rest[rest.indexOf(a) - 1] ?? '').match(/^--(slice|detail|files)$/));
 	if (cmd === 'plan') return runPlan(args);
 	if (cmd === 'new') return runNew(positionals);
+	if (cmd === 'verify') return runVerify(args);
 	if (isLegacyTree() && ['manifest', 'audit', 'analyze'].includes(cmd)) { legacyNotice(`arch:${cmd}`); return 0; }
 	const files = await collectFiles();
 	if (cmd === 'manifest') return runManifest(args, config, files);
 	if (cmd === 'audit') return runAudit(args, config, files);
 	if (cmd === 'analyze') return runAnalyze(args, config, files);
-	console.error('사용법: arch.mjs <manifest|audit|analyze|new|plan|version> [옵션]');
+	console.error('사용법: arch.mjs <manifest|audit|analyze|new|plan|verify|version> [옵션]');
 	return 2;
 }
 

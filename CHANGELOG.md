@@ -1,13 +1,43 @@
 # Changelog
 
-## 5.1.0 — 2026-07-05
+## 5.4.0 — 2026-07-05
 
 **서버 port 계층 + 리서치 기반 정합·중립화 (MINOR).** 권위 레퍼런스(헥사고날 ports&adapters·Clean·DDD, SvelteKit/Svelte 공식 문서) 딥리서치를 3-vote 적대검증으로 통과시킨 결과를 반영 — 서버 계층에 driven port 인터페이스를 1급으로 도입하고, 최신성·중립성 문서를 정합화. 전문·인용·정정이력 = `research/modernization-research-2026-07.md`.
 
-- **신규 `*.port.ts` 종별 + 룰 2개(51→53: `PORT_TYPES_ONLY` + 아래 `REMOTE_UNVALIDATED_INPUT`)**: driven port(계약 인터페이스). 런타임 값 export 금지 — 구현은 repository·adapter. service는 구상이 아니라 **인터페이스 타입에 의존** → in-memory 더블 주입으로 격리 테스트가 *실제로* 성립(A1 근거 실체화), ORM 교체 시 service·port 불변(도구 중립). `SERVER_KIND_PLACEMENT`에 port 편입(`server/<slice|shared>/` 의무). 근거 = Sairyss·Stemmler·Cockburn 만장일치 "repository는 인터페이스로 먼저".
+- **신규 `*.port.ts` 종별 + 룰 2개(53→55: `PORT_TYPES_ONLY` + 아래 `REMOTE_UNVALIDATED_INPUT`)**: driven port(계약 인터페이스). 런타임 값 export 금지 — 구현은 repository·adapter. service는 구상이 아니라 **인터페이스 타입에 의존** → in-memory 더블 주입으로 격리 테스트가 *실제로* 성립(A1 근거 실체화), ORM 교체 시 service·port 불변(도구 중립). `SERVER_KIND_PLACEMENT`에 port 편입(`server/<slice|shared>/` 의무). 근거 = Sairyss·Stemmler·Cockburn 만장일치 "repository는 인터페이스로 먼저".
 - **kit**: `arch:new port <slice>` 생성기 + `port.template.ts` 신설. `service`·`repository` 템플릿을 **port 조립 패턴**으로 개편(팩토리 `makeXxx(repo: Port)` + 기본 배선 `export const xxx = makeXxx(concreteRepo)`). 매니페스트 `--slice`가 port 계약(인터페이스 원문)을 별첨. 체크리스트 +2(13→15): repository/adapter는 대응 port `implements` · service는 port 타입으로 repo 수용.
 - **문서 정합·중립화(구조 무변)**: remote functions **experimental 명시**+버전고정+Standard Schema 검증 권고(svelte.dev·changelog 2.69.1·DoS CVE 검증 3-0) — 신규 `REMOTE_UNVALIDATED_INPUT`(warn)이 미검증 query/command 입력을 지목(스키마 우선·무인자 면제) · 서버 프레이밍 선형 3-tier→**inside/outside+ports**(Cockburn 3-0) · class 배열 근거 정직화(clsx 내장 vs tailwind-merge 트레이드오프) · dumb/smart 근거를 "업계 표준"→"remote/boundary 기계적 경계"로 전환(Abramov 2019 철회 인지) · FSD 2.1 pages-first 강화(entities **"Optional"**·advanced 후순위) · pages "닫힘≠생략" 명확화 · vendor 도구중립화(shadcn 일반화)+Tailwind v4(CSS-first·OKLCH·data-slot) · `<svelte:boundary>` 한계·Mapper 경계 명문화.
 - **검증 정정**: 초안의 "pages 계층 드롭"·"FSD가 dumb/smart 공식 폐기" 2건은 적대검증에서 refute → 리포트·규범 모두 정정(svelte-arch는 pages를 보유·닫힘; dumb/smart 폐기는 Abramov·patterns.dev만 근거).
+- **병합**: 업스트림 v5.1.0(`CLASS_PROP_STRING_TYPE`)·v5.2.0(A11·`UNRESOLVED_INTERNAL_LINK`·`verify`)·v5.3.0(`arch-sync` 개명·버전 가드) 위에 적재 — 룰 53→55.
+
+## 5.3.0 — 2026-07-05
+
+**설치 명령 개명 — `arch-init`/`init.mjs` → `arch-sync`/`sync.mjs`.** "init"은 이름만 보면 일회성 설치로 오해되기 쉬운데, 이 명령은 처음부터 "최초=스캐폴드, 재실행=동기화+마이그레이션"인 멱등 수렴 명령이었다(Capacitor `cap sync`, Prisma `generate` 재실행처럼 "언제든 다시 돌려도 안전"이라는 뉴앙스를 이름 자체가 전달하는 업계 관용에 정렬). 소비 프로젝트의 설치 풋프린트(`.svelte-arch/*`·CLAUDE.md 마커·pre-commit 마커·package.json scripts)는 명령 이름을 담고 있지 않아 마이그레이션 코드모드가 불필요 — 순수 명명 변경.
+
+- `commands/arch-init.md` → `commands/arch-sync.md`(`git mv`) — 슬래시 명령이 `/arch-sync`로 변경.
+- `skills/svelte-arch/kit/init.mjs` → `skills/svelte-arch/kit/sync.mjs`(`git mv`).
+- `arch.mjs`의 `verify` 안내 메시지·주석, `README.md`·`SKILL.md`·`adoption.md`·`kit.md`·`migrations/README.md`·`migrations/4.0.0.mjs`의 관련 문구 전부 갱신.
+- 이전 버전(v5.2.0 이하)의 CHANGELOG 항목은 당시 명칭(`arch-init`)을 그대로 둔다 — 날짜 기록이라 역사적 정확성 우선.
+- **메타데이터 정정 + 릴리스 가드**: `plugin.json`의 `version` 필드가 v5.2.0·v5.3.0 릴리스에서 갱신되지 않아 5.1.0에 방치돼 있던 것을 5.3.0으로 정정(`/plugin`이 옛 버전을 보고하던 원인). 재발 방지로 `scripts/check-version-sync.mjs`(`kit/VERSION`·arch.mjs `KIT_VERSION`·`plugin.json`·CHANGELOG 최상단 **4소스** 일치 검사) + `.githooks/pre-push` 가드를 추가 — 네 버전이 어긋나면 push가 막힌다. `plugin.json` description의 룰 카운트도 52→53룰로 정정.
+
+## 5.2.0 — 2026-07-05
+
+**신규 조항 A11 + 룰 `UNRESOLVED_INTERNAL_LINK`(error, 52→53룰)** — 소비 프로젝트에서 반복 발견된 실수: `<a href="/cycle/settings">`처럼 SvelteKit 내부 절대경로를 문자열 리터럴로 직접 쓰고 `$app/paths`의 `resolve()`를 누락. base path 변경 시 깨지고 타입 세이프 라우트 검증이 무력화된다. `<a href>`·`goto()`·`redirect()`·`<form action>` 4개 호출부를 정규식으로 감사(문자열 리터럴 직접 사용만 대상 — `resolve()` 표현식으로 감싼 경우는 애초에 패턴 자체가 다르므로 자연히 제외). 외부 프로토콜·프로토콜 상대·정적 자원(확장자)·해시는 감지 대상 아님.
+
+**신규 명령 `arch.mjs verify`** — kit 설치 풋프린트(CLAUDE.md 마커 블록·pre-commit 마커 블록·package.json scripts 5종·config.mjs·templates/)가 서로 다른 버전을 가리키며 반쪽 상태로 어긋나는 것을 감지한다. "지금 설치가 스킬 최신 버전인가"는 범위 밖(그건 `arch-init` 재실행 시 에이전트가 계속 담당) — 이 명령은 "설치물 자체가 내부적으로 일관되는가"만 본다. `audit` 실행 시 결과에 영향 없는 비차단 배너로 자동 선행.
+
+- **constitution.md**: §1에 A11 조항 신설.
+- **audit-rules.md**: B군에 `UNRESOLVED_INTERNAL_LINK` 행 추가(52→53룰), 헤더·B군 카운트 갱신.
+- **claude-block.md**: 상시 로드 요약 카드의 "핵심 금칙"에 한 구절 반영.
+- **README.md**: 3중 방어 섹션·구성 섹션 룰 카운트 53룰로 갱신.
+
+## 5.1.0 — 2026-07-05
+
+**신규 룰 `CLASS_PROP_STRING_TYPE`(warn, 50→52룰)** — 소비 프로젝트에서 실제로 반복 발견된 실수: `class`·`triggerClass` 등 `*Class` prop을 `string`으로 좁게 타입해 A9의 `class={[...]}` 배열 규약(clsx 스타일 배열·객체 합성)과 어긋나는 경우. Svelte `ClassValue`(`svelte/elements`)로 타입하도록 `extractProps()` 결과를 재사용해 감사(새 라인 단위 정규식 없음 — 룰 저작 불변식 준수).
+
+- **constitution.md**: A9에 prop 타입 항 추가.
+- **audit-rules.md**: 룰 표에 `CLASS_PROP_STRING_TYPE` 행 추가.
+- **claude-block.md**: 상시 로드 요약 카드의 "핵심 금칙"에 한 구절 반영 — 커밋 시점이 아니라 작성 시점부터 인지.
 
 ## 5.0.0 — 2026-07-04
 

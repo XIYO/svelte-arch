@@ -2,10 +2,10 @@
 
 > 신규 프로젝트는 kit 설치(kit.md) + 헌법 트리로 시작하면 끝. 이 문서는 **이미 코드가 쌓인 프로젝트**의 이행 순서. 구조 이행은 사용자의 결정 — 승인 없이 `--apply` 금지.
 
-## 0. kit 설치 (`init.mjs` 한 명령)
+## 0. kit 설치 (`arch-sync`(`sync.mjs`) 한 명령)
 
 - `.svelte-arch/`(CLI·config·템플릿) + 훅 마커 주입 + package scripts + 루트 CLAUDE.md 마커 블록.
-- 구 트리 감지 시 init이 이행 필요를 알린다. **이행 전 audit·manifest는 룰 폭주 대신 plan 안내만 출력**한다.
+- 구 트리 감지 시 sync가 이행 필요를 알린다. **이행 전 audit·manifest는 룰 폭주 대신 plan 안내만 출력**한다.
 
 ## 1. svelte.config 수술 (수동 1분 — plan이 정확한 스니펫을 출력)
 
