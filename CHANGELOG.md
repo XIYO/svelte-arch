@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.5.0 — 2026-07-05
+
+**신규 명령 `/arch-feedback` — 요구사항→업스트림 PR 프로토콜 (MINOR).** 여러 소비 프로젝트(이 저장소 자체 포함, macOS·Windows 양쪽에서 작업된 이력 존재)에서 발견되는 kit 개선 필요가 대화 중 흘러가는 요청으로 유실되던 것을, 항상 `XIYO/svelte-arch`에 대한 PR로 formalize하는 프로토콜로 고정한다. 이슈가 아니라 PR인 이유는 유일한 실사용자가 곧 메인테이너라 "논의 후 구현"보다 "가능하면 그 자리에서 실물 diff"가 더 유용하기 때문 — 이 저장소가 설계 문서조차 실제 커밋(`07ecbd6 docs: ... 설계 스펙`)으로 남기던 관행의 연장.
+
+- **규모별 자동 분기**: 오탈자·기존 패턴 복제 같은 기계적 요구는 실제 구현까지 포함한 PR로, 설계 판단이 필요한 요구는 `docs/superpowers/specs/`에 제안 문서만 담은 PR로 — 애매하면 안전한 쪽(제안 문서). `arch.mjs`를 직접 건드리는 기계적 변경은 룰 저작 불변식 3조(4.1.1·4.1.2·4.2.1이 이 위반의 수리였던 전례) 재확인을 의무화.
+- **PR 규격**: 제목은 새 컨벤션 없이 이 저장소가 이미 쓰는 Conventional Commits 재사용(scope = `area:*` 라벨과 1:1). 본문은 Summary·Motivation·Environment(OS·런타임·kit 버전 — 크로스플랫폼 수집은 셸 분기 대신 `bun -e`+동적 `import('node:os')`로 일원화)·Changes·Checklist 고정 템플릿.
+- **라벨 12종 신설**(`type:*`·`area:*`·`scope:mechanical|proposal`·`source:agent-filed`) — 저장소 최초의 커스텀 라벨 택소노미. OS는 라벨이 아니라 본문 Environment 섹션에만 기재(분류 카테고리가 아니라 인스턴스 메타데이터).
+- **안전장치**: push·PR 생성 전 항상 diff·제목·라벨·본문 프리뷰 확인 게이트. 기계적 경로의 버전 갱신 누락은 기존 `.githooks/pre-push` 버전동기화 가드가 이미 방지.
+- **신규 파일**: `commands/arch-feedback.md`(슬래시 커맨드) · `skills/svelte-arch/references/contribution.md`(상세 프로토콜). 배경·대안 = `docs/superpowers/specs/2026-07-05-arch-feedback-design.md`.
+- **claude-block.md**: 상시 로드 요약 카드에 존재 알림 1줄 추가(전체 프로토콜은 넣지 않음 — 밀도=컨텍스트 비용 원칙).
+- **SKILL.md·README.md**: progressive disclosure 표·구성 섹션에 각각 반영.
+
 ## 5.4.0 — 2026-07-05
 
 **서버 port 계층 + 리서치 기반 정합·중립화 (MINOR).** 권위 레퍼런스(헥사고날 ports&adapters·Clean·DDD, SvelteKit/Svelte 공식 문서) 딥리서치를 3-vote 적대검증으로 통과시킨 결과를 반영 — 서버 계층에 driven port 인터페이스를 1급으로 도입하고, 최신성·중립성 문서를 정합화. 전문·인용·정정이력 = `research/modernization-research-2026-07.md`.

@@ -100,6 +100,7 @@ UI·서버 작업 감지
 | 매니페스트 출력 명세·추출 앵커·버전 체인 | `references/manifest-protocol.md` |
 | 기존 프로젝트 이행 플레이북 | `references/adoption.md` |
 | kit 설치·업데이트·소유권·semver | `references/kit.md` |
+| 업스트림 기여(요구사항→PR) 프로토콜 | `references/contribution.md` |
 
 ## 흔한 실수
 

@@ -72,9 +72,10 @@ git config core.hooksPath .githooks
 ## 구성
 
 ```text
+commands/              # 슬래시 커맨드 — arch-sync(설치)·arch-feedback(업스트림 기여)
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 55룰·매니페스트·도입·kit
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 55룰·매니페스트·도입·kit·업스트림 기여
 └── kit/              # sync.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 
