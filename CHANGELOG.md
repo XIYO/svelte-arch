@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.2.0 — 2026-07-05
+
+**신규 조항 A11 + 룰 `UNRESOLVED_INTERNAL_LINK`(error, 52→53룰)** — 소비 프로젝트에서 반복 발견된 실수: `<a href="/cycle/settings">`처럼 SvelteKit 내부 절대경로를 문자열 리터럴로 직접 쓰고 `$app/paths`의 `resolve()`를 누락. base path 변경 시 깨지고 타입 세이프 라우트 검증이 무력화된다. `<a href>`·`goto()`·`redirect()`·`<form action>` 4개 호출부를 정규식으로 감사(문자열 리터럴 직접 사용만 대상 — `resolve()` 표현식으로 감싼 경우는 애초에 패턴 자체가 다르므로 자연히 제외). 외부 프로토콜·프로토콜 상대·정적 자원(확장자)·해시는 감지 대상 아님.
+
+**신규 명령 `arch.mjs verify`** — kit 설치 풋프린트(CLAUDE.md 마커 블록·pre-commit 마커 블록·package.json scripts 5종·config.mjs·templates/)가 서로 다른 버전을 가리키며 반쪽 상태로 어긋나는 것을 감지한다. "지금 설치가 스킬 최신 버전인가"는 범위 밖(그건 `arch-init` 재실행 시 에이전트가 계속 담당) — 이 명령은 "설치물 자체가 내부적으로 일관되는가"만 본다. `audit` 실행 시 결과에 영향 없는 비차단 배너로 자동 선행.
+
+- **constitution.md**: §1에 A11 조항 신설.
+- **audit-rules.md**: B군에 `UNRESOLVED_INTERNAL_LINK` 행 추가(52→53룰), 헤더·B군 카운트 갱신.
+- **claude-block.md**: 상시 로드 요약 카드의 "핵심 금칙"에 한 구절 반영.
+- **README.md**: 3중 방어 섹션·구성 섹션 룰 카운트 53룰로 갱신.
+
 ## 5.1.0 — 2026-07-05
 
 **신규 룰 `CLASS_PROP_STRING_TYPE`(warn, 50→52룰)** — 소비 프로젝트에서 실제로 반복 발견된 실수: `class`·`triggerClass` 등 `*Class` prop을 `string`으로 좁게 타입해 A9의 `class={[...]}` 배열 규약(clsx 스타일 배열·객체 합성)과 어긋나는 경우. Svelte `ClassValue`(`svelte/elements`)로 타입하도록 `extractProps()` 결과를 재사용해 감사(새 라인 단위 정규식 없음 — 룰 저작 불변식 준수).

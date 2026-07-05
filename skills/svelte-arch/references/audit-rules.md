@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 52룰 (v5, steiger 흡수)
+# 감사 룰 매트릭스 — 53룰 (v5, steiger 흡수)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -18,7 +18,7 @@
 | `INSIGNIFICANT_SLICE` | sliced 계층 | 소비 파일 1개뿐인 slice → 콜로케이션 회귀 제안 (steiger 동명 룰) | warn |
 | `HEAVY_REEXPORT` | slice index | 재수출 12개 초과 — 공개 계약 비대, 배럴 화이트리스트 원칙(constitution A5) 점검 신호. slice 분할 또는 단일 소비자 파편의 배치 교정으로 처방 | warn |
 
-## B군 — 품질 오버레이·클라 (23)
+## B군 — 품질 오버레이·클라 (24)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
@@ -46,6 +46,7 @@
 | `CALLBACK_NAME_STYLE` | view | 콜백 prop `on소문자` — camelCase `onXxx` | error |
 | `SET_PARTIAL_IMPORT` | 전체 | 세트 부품 부분 구조분해 — `import * as` 네임스페이스 의무 | error |
 | `VENDOR_IMPORT` | 전체 | `shared/vendor` 소비가 shared/ui 래핑 밖 | error |
+| `UNRESOLVED_INTERNAL_LINK` | 전체(`.svelte`·`.ts`) | `<a href>`·`goto()`·`redirect()`·`<form action>`에 내부 절대경로 문자열 리터럴 직접 사용 — `resolve()`(`$app/paths`) 미경유(A11) | error |
 
 ## C군 — 서버 (11)
 
