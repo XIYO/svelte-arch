@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * init.mjs — 이 프로젝트를 arch kit 현재 버전 상태로 수렴 (선언적·멱등)
+ * sync.mjs — 이 프로젝트를 arch kit 현재 버전 상태로 수렴 (선언적·멱등)
  *
- * 실행: 프로젝트 루트에서  bun <스킬경로>/kit/init.mjs  [--force]
+ * 실행: 프로젝트 루트에서  bun <스킬경로>/kit/sync.mjs  [--force]
  * - 최초 실행 = 스캐폴드 / 재실행 = kit-owned 동기화 + 대기 마이그레이션 자동 적용
  * - 설치물 = .svelte-arch/ + package.json arch:* 5줄 + CLAUDE.md 마커 블록 + 훅 파일 안 마커 블록
  *   + 계층·slice CLAUDE.md 씨앗(없는 곳만) + core.hooksPath 미설정 시 .githooks 지정

@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.3.0 — 2026-07-05
+
+**설치 명령 개명 — `arch-init`/`init.mjs` → `arch-sync`/`sync.mjs`.** "init"은 이름만 보면 일회성 설치로 오해되기 쉬운데, 이 명령은 처음부터 "최초=스캐폴드, 재실행=동기화+마이그레이션"인 멱등 수렴 명령이었다(Capacitor `cap sync`, Prisma `generate` 재실행처럼 "언제든 다시 돌려도 안전"이라는 뉴앙스를 이름 자체가 전달하는 업계 관용에 정렬). 소비 프로젝트의 설치 풋프린트(`.svelte-arch/*`·CLAUDE.md 마커·pre-commit 마커·package.json scripts)는 명령 이름을 담고 있지 않아 마이그레이션 코드모드가 불필요 — 순수 명명 변경.
+
+- `commands/arch-init.md` → `commands/arch-sync.md`(`git mv`) — 슬래시 명령이 `/arch-sync`로 변경.
+- `skills/svelte-arch/kit/init.mjs` → `skills/svelte-arch/kit/sync.mjs`(`git mv`).
+- `arch.mjs`의 `verify` 안내 메시지·주석, `README.md`·`SKILL.md`·`adoption.md`·`kit.md`·`migrations/README.md`·`migrations/4.0.0.mjs`의 관련 문구 전부 갱신.
+- 이전 버전(v5.2.0 이하)의 CHANGELOG 항목은 당시 명칭(`arch-init`)을 그대로 둔다 — 날짜 기록이라 역사적 정확성 우선.
+
 ## 5.2.0 — 2026-07-05
 
 **신규 조항 A11 + 룰 `UNRESOLVED_INTERNAL_LINK`(error, 52→53룰)** — 소비 프로젝트에서 반복 발견된 실수: `<a href="/cycle/settings">`처럼 SvelteKit 내부 절대경로를 문자열 리터럴로 직접 쓰고 `$app/paths`의 `resolve()`를 누락. base path 변경 시 깨지고 타입 세이프 라우트 검증이 무력화된다. `<a href>`·`goto()`·`redirect()`·`<form action>` 4개 호출부를 정규식으로 감사(문자열 리터럴 직접 사용만 대상 — `resolve()` 표현식으로 감싼 경우는 애초에 패턴 자체가 다르므로 자연히 제외). 외부 프로토콜·프로토콜 상대·정적 자원(확장자)·해시는 감지 대상 아님.

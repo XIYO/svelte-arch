@@ -30,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.2.0';
+const KIT_VERSION = '5.3.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -966,7 +966,7 @@ async function runVerify(args) {
 	}
 	for (const c of checks) console.log(`${c.ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${c.name}${c.detail ? ` (${c.detail})` : ''}`);
 	console.log(fail.length
-		? `\n${fail.length}건 불일치 — arch-init 재실행 필요 (bun <플러그인경로>/skills/svelte-arch/kit/init.mjs)`
+		? `\n${fail.length}건 불일치 — arch-sync 재실행 필요 (bun <플러그인경로>/skills/svelte-arch/kit/sync.mjs)`
 		: `\n✓ 설치 무결손 확인 (kit v${KIT_VERSION})`);
 	return fail.length ? 1 : 0;
 }
@@ -1022,7 +1022,7 @@ async function assertUniqueBase(base) {
 const isPascal = (s) => /^[A-Z][A-Za-z0-9]*$/.test(s);
 const isKebab = (s) => /^[a-z][a-z0-9-]*$/.test(s);
 
-// 계층 루트 역할 1행 (init.mjs LAYER_ROLES와 동일 문안) — new·plan이 계층을 새로 만들 때도 시드해
+// 계층 루트 역할 1행 (sync.mjs LAYER_ROLES와 동일 문안) — new·plan이 계층을 새로 만들 때도 시드해
 // "생성 직후 자체 감사(MISSING_CLAUDE_MD) 실패"가 없게 한다.
 const LAYER_ROLES = {
 	app: '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',

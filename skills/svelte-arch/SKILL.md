@@ -108,7 +108,7 @@ UI·서버 작업 감지
 - **shared/ui·shared/lib에 통합 배럴** — 딥 임포트만(FSD 공식 처방 = Vite 성능 가이드).
 - **container에 마크업·로직이 자란다** — 마크업은 view의 prop 부족, 로직은 model `*.svelte.ts` 추출 신호.
 - **view가 `$app/state`로 URL을 읽는다** — 외부 정본은 prop 주입(`active` 등). container·글루 소관.
-- **`.live.svelte` 잔존** — kit v5 구표기, `LEGACY_SUFFIX`가 즉시 지목. 신규는 처음부터 `.container.svelte`, 기존 프로젝트는 `init.mjs` 재실행 시 `migrations/5.0.0.mjs`가 자동 rename.
+- **`.live.svelte` 잔존** — kit v5 구표기, `LEGACY_SUFFIX`가 즉시 지목. 신규는 처음부터 `.container.svelte`, 기존 프로젝트는 `arch-sync` 재실행 시 `migrations/5.0.0.mjs`가 자동 rename.
 - **remote에 값 export** — remote function 외 값 export는 서버 트랜스폼에서 즉사. 타입은 합법.
 - **`cn()`·템플릿 리터럴 클래스** — 내장 `class={[...]}` 배열만 (vendor 내부만 예외).
 - **+page.server.ts에서 데이터 로딩** — 가드·메타 전용. 수급 사다리: remote → universal load → +page.server → raw endpoint.

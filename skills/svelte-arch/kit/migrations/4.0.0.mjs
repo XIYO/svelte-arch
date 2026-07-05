@@ -1,4 +1,4 @@
-export const summary = 'FSD 2.1 좌표계 전환 — kit-owned 동기화는 init 이 수행, 구조 이행은 arch:plan(사용자 승인 필수)으로 안내';
+export const summary = 'FSD 2.1 좌표계 전환 — kit-owned 동기화는 arch-sync 가 수행, 구조 이행은 arch:plan(사용자 승인 필수)으로 안내';
 
 /**
  * v3(파일 종별 트리) → v4(FSD 좌표계)는 구조 비호환(MAJOR)이지만 자동 코드모드가 아니다:

@@ -27,10 +27,10 @@
 | 루트 CLAUDE.md 마커 블록 | kit (블록 안만) | 블록만 교체 |
 | package.json arch:* 키 | kit (해당 키만) | 해당 키만 갱신 |
 
-## init — 설치·업데이트·마이그레이션이 한 명령 (선언적 수렴)
+## arch-sync — 설치·업데이트·마이그레이션이 한 명령 (선언적 수렴)
 
 ```bash
-bun <스킬경로>/kit/init.mjs   # 최초=스캐폴드 / 재실행=kit-owned 동기화 + 대기 마이그레이션
+bun <스킬경로>/kit/sync.mjs   # 최초=스캐폴드 / 재실행=kit-owned 동기화 + 대기 마이그레이션
 ```
 
 - 설치 버전 = `arch.mjs` 헤더 `KIT_VERSION`(파일이 곧 상태). 마이그레이션 = `kit/migrations/<ver>.mjs` semver 순 실행(깨끗한 트리 필수·멱등·롤백=git).

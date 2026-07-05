@@ -37,8 +37,8 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 /plugin install svelte-arch@svelte-arch
 
 # 아무 SvelteKit 프로젝트에서 — 설치·업데이트·마이그레이션이 한 명령
-bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
-# 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘"
+bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
+# 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘" (/arch-sync)
 ```
 
 설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice CLAUDE.md 씨앗(없는 곳만). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
@@ -48,7 +48,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 ## 버전·업데이트
 
 - 설치 버전 = `.svelte-arch/arch.mjs` 헤더(파일이 곧 상태), 매니페스트 1행에 노출 → 에이전트가 드리프트 자동 감지.
-- `init.mjs` 재실행 = 업데이트. semver: MAJOR=비호환(마이그레이션 또는 승인형 plan 경로 동봉) · MINOR=룰 추가 · PATCH=수정.
+- `arch-sync`(`sync.mjs`) 재실행 = 업데이트. semver: MAJOR=비호환(마이그레이션 또는 승인형 plan 경로 동봉) · MINOR=룰 추가 · PATCH=수정.
 
 ## 구성
 
@@ -56,7 +56,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/init.mjs
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
 ├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 53룰·매니페스트·도입·kit
-└── kit/              # init.mjs·arch.mjs(CLI)·템플릿·마이그레이션
+└── kit/              # sync.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 
 ## License
