@@ -1,0 +1,11 @@
+#!/bin/sh
+# svelte-arch 릴리스 가드 — 세 버전 소스(plugin.json · arch.mjs KIT_VERSION · CHANGELOG)가
+# 어긋나면 push 를 막는다. 활성화: git config core.hooksPath .githooks (README "버전·업데이트" 참조).
+root="$(git rev-parse --show-toplevel)"
+if command -v bun >/dev/null 2>&1; then
+	bun "$root/scripts/check-version-sync.mjs" || exit 1
+elif command -v node >/dev/null 2>&1; then
+	node "$root/scripts/check-version-sync.mjs" || exit 1
+else
+	echo "pre-push: bun/node 둘 다 없어 버전 동기화 검사를 건너뜁니다(경고)." >&2
+fi

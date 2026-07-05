@@ -8,6 +8,7 @@
 - `skills/svelte-arch/kit/init.mjs` → `skills/svelte-arch/kit/sync.mjs`(`git mv`).
 - `arch.mjs`의 `verify` 안내 메시지·주석, `README.md`·`SKILL.md`·`adoption.md`·`kit.md`·`migrations/README.md`·`migrations/4.0.0.mjs`의 관련 문구 전부 갱신.
 - 이전 버전(v5.2.0 이하)의 CHANGELOG 항목은 당시 명칭(`arch-init`)을 그대로 둔다 — 날짜 기록이라 역사적 정확성 우선.
+- **메타데이터 정정 + 릴리스 가드**: `plugin.json`의 `version` 필드가 v5.2.0·v5.3.0 릴리스에서 갱신되지 않아 5.1.0에 방치돼 있던 것을 5.3.0으로 정정(`/plugin`이 옛 버전을 보고하던 원인). 재발 방지로 `scripts/check-version-sync.mjs`(plugin.json·`KIT_VERSION`·CHANGELOG 최상단 3소스 일치 검사) + `.githooks/pre-push` 가드를 추가 — 세 버전이 어긋나면 push가 막힌다. `plugin.json` description의 룰 카운트도 52→53룰로 정정.
 
 ## 5.2.0 — 2026-07-05
 

@@ -50,6 +50,24 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 - 설치 버전 = `.svelte-arch/arch.mjs` 헤더(파일이 곧 상태), 매니페스트 1행에 노출 → 에이전트가 드리프트 자동 감지.
 - `arch-sync`(`sync.mjs`) 재실행 = 업데이트. semver: MAJOR=비호환(마이그레이션 또는 승인형 plan 경로 동봉) · MINOR=룰 추가 · PATCH=수정.
 
+### 릴리스 버전 동기화 가드 (저장소 기여자용)
+
+이 저장소의 릴리스 버전은 세 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 `/plugin`이 옛 버전을 보고한다(실제로 `plugin.json`이 5.1.0에 방치된 적 있음):
+
+| 소스 | 위치 |
+| --- | --- |
+| `plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
+| `arch.mjs` `KIT_VERSION` | audit·매니페스트·설치 마커에 노출 |
+| `CHANGELOG.md` 최상단 `## X.Y.Z` | 릴리스 기록 |
+
+`scripts/check-version-sync.mjs`가 셋의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+수동 실행: `bun scripts/check-version-sync.mjs`. 릴리스 시 세 곳을 같은 버전으로 올린 뒤 push 한다.
+
 ## 구성
 
 ```text
