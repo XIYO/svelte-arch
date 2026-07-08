@@ -43,7 +43,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 
 설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice CLAUDE.md 씨앗(없는 곳만). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
 
-기존(비-FSD) 프로젝트는 `arch:plan`이 이행 제안표(svelte.config 수술 + 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱**)를 산출하고, 사용자 승인 후에만 `--apply`한다.
+기존(비-FSD) 프로젝트는 `arch:plan`이 이행 제안표(config 수술(vite.config `sveltekit()` 인라인) + 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱**)를 산출하고, 사용자 승인 후에만 `--apply`한다.
 
 ## 버전·업데이트
 

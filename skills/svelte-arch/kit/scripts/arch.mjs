@@ -30,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.5.0';
+const KIT_VERSION = '5.6.0';
 const ROOT = process.cwd();
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
@@ -165,7 +165,7 @@ function isLegacyTree() {
 function legacyNotice(cmd) {
 	console.log(`⚠ 구(비-FSD) 구조 감지 — ${cmd}는 FSD 좌표계 전제라 룰을 돌리지 않습니다.`);
 	console.log(`  이행 절차: ① bun run arch:plan (제안표) → ② 사용자 승인 + plan-overrides.json 조정 → ③ bun run arch:plan -- --apply`);
-	console.log(`  상세 = svelte-arch 스킬 references/adoption.md (svelte.config 수술 포함)`);
+	console.log(`  상세 = svelte-arch 스킬 references/adoption.md (config 수술 포함)`);
 }
 
 // ── 임포트 그래프 (배럴 투명 해석 — 상대·@/·$lib/ 전부 resolve) ──────────
@@ -1320,7 +1320,7 @@ async function runPlan(args) {
 	const guesses = applied.filter((m) => !m.sure);
 	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동 ${applied.length}(확실 ${applied.length - guesses.length} · 추정 ${guesses.length}) · 삭제(배럴) ${deletes.length} · 임포트 재작성 ${rewriteCount}파일 · 미분류 ${followups.length} · 해체 후보 ${teardown.length}`);
 	if (guesses.length || followups.length) console.log(`  추정·미분류 = 2차 LLM 검토 대상 — 내용을 열어 계층 판정 후 plan-overrides.json 확정 (스킬 adoption.md §2.5)`);
-	console.log(`\n## 0단계(수동 1분): svelte.config 수술 — files.lib='src' · files.routes='src/app/routes' · files.appTemplate='src/app/index.html' · alias '@'→'src' (정본: 스킬 fsd-guide.md)`);
+	console.log(`\n## 0단계(수동 1분): config 수술 — vite.config 의 sveltekit() 인라인(kit 2.62.0+ 권장, svelte.config.js 폐지)에 files.lib='src' · files.routes='src/app/routes' · files.appTemplate='src/app/index.html' · alias '@'→'src' (예외 4급·정본: 스킬 fsd-guide.md)`);
 	const byGroup = Map.groupBy(applied, (m) => m.to.split('/').slice(1, 3).join('/'));
 	for (const [g, list] of [...byGroup].sort()) {
 		console.log(`\n## ${g} (${list.length})`);
@@ -1343,7 +1343,7 @@ async function runPlan(args) {
 	console.log(`\n분류는 휴리스틱 제안입니다 — [widget|feature|entity] 표기를 검토하고, 수정은 .svelte-arch/plan-overrides.json 에.`);
 
 	if (!apply) {
-		console.log(`적용: bun run arch:plan -- --apply  (svelte.config 수술 선행 + 완전히 깨끗한 작업트리 필수, 롤백=git)`);
+		console.log(`적용: bun run arch:plan -- --apply  (config 수술 선행 + 완전히 깨끗한 작업트리 필수, 롤백=git)`);
 		return 0;
 	}
 
@@ -1352,9 +1352,13 @@ async function runPlan(args) {
 		console.error(`✗ 거부 — 동일 대상 충돌 ${dupes.length}건(위 ✗ 목록). plan-overrides.json 으로 대상을 분리한 뒤 재실행.`);
 		return 1;
 	}
-	const cfgFile = ['svelte.config.js', 'svelte.config.ts'].map((f) => join(ROOT, f)).find(existsSync);
-	if (!cfgFile || !(await readFile(cfgFile, 'utf-8')).includes('src/app/routes')) {
-		console.error(`✗ 거부 — svelte.config 에 files.routes='src/app/routes' 수술이 선행돼야 합니다 (fsd-guide.md).`);
+	// config 수술 게이트 — kit 2.62.0+ 는 vite.config 의 sveltekit() 인라인이 정본, 예외 4급만 svelte.config (fsd-guide.md)
+	const cfgCandidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mts', 'vite.config.mjs', 'svelte.config.js', 'svelte.config.ts']
+		.map((f) => join(ROOT, f)).filter(existsSync);
+	let surgeryDone = false;
+	for (const p of cfgCandidates) if ((await readFile(p, 'utf-8')).includes('src/app/routes')) { surgeryDone = true; break; }
+	if (!surgeryDone) {
+		console.error(`✗ 거부 — config 수술 선행 필요: vite.config 의 sveltekit() 인라인(권장, kit 2.62.0+) 또는 svelte.config 에 files.routes='src/app/routes' (fsd-guide.md).`);
 		return 1;
 	}
 	try {

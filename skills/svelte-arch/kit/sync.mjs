@@ -200,7 +200,7 @@ log(`\n✓ arch kit v${KIT_VERSION} 설치/업데이트 완료 → ${norm(ROOT)}
 for (const d of done) log(`  · ${d}`);
 if (legacy) {
 	log(`\n⚠ 구(비-FSD) 구조 감지 — FSD 좌표계 이행이 필요합니다.`);
-	log(`  ① svelte.config 수술 (스킬 references/fsd-guide.md 스니펫 — 수동 1분)`);
+	log(`  ① config 수술 — vite.config sveltekit() 인라인 (스킬 references/fsd-guide.md 스니펫 — 수동 1분)`);
 	log(`  ② bun run arch:plan          # 이동·리네임·3계층 분류 제안표`);
 	log(`  ③ 제안표 검토·승인 + .svelte-arch/plan-overrides.json 조정 후에만: bun run arch:plan -- --apply`);
 	log(`  (에이전트 규범: "FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?" 승인 필수)`);

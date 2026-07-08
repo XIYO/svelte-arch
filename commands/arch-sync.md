@@ -13,7 +13,7 @@ description: 현재 SvelteKit 프로젝트에 svelte-arch kit(FSD 2.1)을 설치
 
 3. 출력 요약을 사용자에게 보여준다. sync 는 기존 `core.hooksPath` 를 존중하고 pre-commit 안의 마커 블록만 관리한다 — 기존 훅 체계를 덮지 않는다.
 4. **구(비-FSD) 구조 감지 시** — sync 출력이 안내하는 대로:
-   - `svelte.config` 수술 스니펫(스킬 `references/fsd-guide.md`)을 사용자에게 제시하고 적용 여부를 확인한다.
+   - config 수술 스니펫(vite.config `sveltekit()` 인라인 권장 — 스킬 `references/fsd-guide.md`, 예외 4급만 svelte.config)을 사용자에게 제시하고 적용 여부를 확인한다.
    - `bun run arch:plan`으로 이행 제안표(이동·리네임·**3계층 분류 휴리스틱**·임포트 재작성 규모)를 **표로 제시**한다.
    - 반드시 묻는다: **"FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?"** 분류 수정은 `.svelte-arch/plan-overrides.json`.
    - **승인한 경우에만** `bun run arch:plan -- --apply` → `svelte-check`·`arch:audit`·dev 부팅 스모크로 검증. 승인 없이 적용 금지.

@@ -1,6 +1,6 @@
 ---
 name: svelte-arch
-description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. FSD 계층(app/widgets/features/entities/shared)·slice·segment 표준 구조를 SvelteKit 방언(공식 svelte.config 수술)으로 완역해 안내·설치·감사하고, FSD가 비워둔 절반(서버 계층 remote→service→repository, dumb(view)/smart(container) 분리, 실행형 매니페스트 발견성, 클래스 배열 규약)을 자체 규범으로 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service 파일을 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"네이밍 규칙"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치(arch kit)하거나 kit 버전을 업데이트할 때 반드시 사용한다.
+description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. FSD 계층(app/widgets/features/entities/shared)·slice·segment 표준 구조를 SvelteKit 방언(공식 config 수술 — vite.config sveltekit() 인라인)으로 완역해 안내·설치·감사하고, FSD가 비워둔 절반(서버 계층 remote→service→repository, dumb(view)/smart(container) 분리, 실행형 매니페스트 발견성, 클래스 배열 규약)을 자체 규범으로 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service 파일을 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"네이밍 규칙"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치(arch kit)하거나 kit 버전을 업데이트할 때 반드시 사용한다.
 ---
 
 # SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v5)
@@ -15,7 +15,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 ```
 
 - 앞 3단 = FSD 표준(디렉토리). 마지막 1단 = svelte-arch 오버레이(파일명 — FSD가 비워둔 dumb/smart 축).
-- SvelteKit 수술(공식 config): `files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` + `@/*` 별칭. `src/server` = `$lib/server`(서버 전용 보호).
+- SvelteKit 수술(공식 config — vite.config `sveltekit()` 인라인, kit 2.62.0+ · 예외만 svelte.config 유지): `files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` + `@/*` 별칭. `src/server` = `$lib/server`(서버 전용 보호).
 
 ## 계층 레지스트리 (요약 — 카드 전문은 constitution.md)
 
@@ -94,7 +94,7 @@ UI·서버 작업 감지
 | 필요한 것 | 파일 |
 |---|---|
 | 헌법 전문 — 공리·계층/segment/종별 카드·판정표 2종(상태 거주지·하강 판정례)·2×2 매트릭스 | `references/constitution.md` |
-| FSD 2.1 번역·용어 사전(업계 대응어)·svelte.config 수술 정본 | `references/fsd-guide.md` |
+| FSD 2.1 번역·용어 사전(업계 대응어)·config 수술 정본(vite.config 흡수) | `references/fsd-guide.md` |
 | 배치 사다리·승격 관문 4테스트·강등·Rule of Two·해치 규율 | `references/discipline.md` |
 | 감사 룰 55 전량 (steiger 흡수분 인라인 표기) | `references/audit-rules.md` |
 | 매니페스트 출력 명세·추출 앵커·버전 체인 | `references/manifest-protocol.md` |

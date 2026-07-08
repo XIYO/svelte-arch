@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.6.0 — 2026-07-08
+
+**config 수술 정본을 vite.config `sveltekit()` 인라인으로 전환 (MINOR).** `@sveltejs/kit` 2.62.0부터 설정을 플러그인 인자로 직접 받고(전달 시 `svelte.config.js` **무시** — 공식 Configuration 문서), `kit` 네임스페이스가 최상위로 평탄화되는 것이 구 레이아웃과의 유일한 차이다. 수술이 "svelte.config 파일 신설·수정"에서 "이미 있는 vite.config 한 곳"으로 줄어 빌드 도구 설정 출처가 하나가 된다. able-gpt 실전 적용(svelte-check 3704파일 0에러 · eslint · arch:audit 통과)으로 검증한 뒤 정본을 교체했다.
+
+- **fsd-guide.md 수술 정본 교체**: vite.config 인라인이 1급. svelte.config.js 유지는 예외 4급으로 강등 — ① kit<2.62.0 ② `preprocess`/`extensions`(에디터 언어서버가 svelte.config만 직접 로드 — mdsvex·scss 등) ③ `onwarn` 커스텀(인라인 타입 `Omit<Options,'onwarn'>`이 명시 배제) ④ `svelte-package` 라이브러리. 흡수 시 함께 갈아야 하는 직접 소비자도 명시: eslint.config.js의 `svelteConfig` import → 파서 최소 인라인 · 에디터 확장은 기본값 폴백 · `svelte-check --tsconfig`는 생성 tsconfig 기반이라 무관.
+- **arch:plan `--apply` 게이트 완화(arch.mjs)**: 수술 검증이 svelte.config.{js,ts} 단독 → vite.config.{ts,js,mts,mjs} 포함 6후보 중 하나라도 `src/app/routes`를 담으면 통과. 구 설치·예외 프로젝트는 svelte.config로 그대로 통과하므로 비파괴(additive — 마이그레이션 파일 불필요, MINOR 규약).
+- 안내 문구 동기화: arch.mjs(legacyNotice·plan 0단계·apply 안내) · sync.mjs 구조 감지 안내 · commands/arch-sync.md · adoption.md §1 · constitution.md §2 · SKILL.md(설명·수술 행·progressive disclosure 표) · README.md · migrations/4.0.0.mjs 안내 문구.
+
 ## 5.5.0 — 2026-07-05
 
 **신규 명령 `/arch-feedback` — 요구사항→업스트림 PR 프로토콜 (MINOR).** 여러 소비 프로젝트(이 저장소 자체 포함, macOS·Windows 양쪽에서 작업된 이력 존재)에서 발견되는 kit 개선 필요가 대화 중 흘러가는 요청으로 유실되던 것을, 항상 `XIYO/svelte-arch`에 대한 PR로 formalize하는 프로토콜로 고정한다. 이슈가 아니라 PR인 이유는 유일한 실사용자가 곧 메인테이너라 "논의 후 구현"보다 "가능하면 그 자리에서 실물 diff"가 더 유용하기 때문 — 이 저장소가 설계 문서조차 실제 커밋(`07ecbd6 docs: ... 설계 스펙`)으로 남기던 관행의 연장.

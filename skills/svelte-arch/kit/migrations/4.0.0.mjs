@@ -7,5 +7,5 @@ export const summary = 'FSD 2.1 좌표계 전환 — kit-owned 동기화는 arch
  */
 export default async function migrate({ log }) {
 	log('  v3 트리(components/primitive·composite 등)는 그대로 두었습니다.');
-	log('  이행 절차: ① svelte.config 수술(fsd-guide.md) ② arch:plan 제안표 검토·승인 ③ arch:plan --apply');
+	log('  이행 절차: ① config 수술(fsd-guide.md — vite.config sveltekit() 인라인 권장) ② arch:plan 제안표 검토·승인 ③ arch:plan --apply');
 }

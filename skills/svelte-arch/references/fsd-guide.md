@@ -31,22 +31,33 @@ FSD v2.0은 entities/features를 먼저 식별하는 bottom-up이었고, 그 경
 
 판정 불확실 → **높은 계층에 둔다**(widgets 디폴트 — FSD 공식 FAQ). 미리 나누지 않는다.
 
-## SvelteKit 수술 정본 (FSD 공식 가이드 방식)
+## SvelteKit 수술 정본 (FSD 공식 가이드 방식 — vite.config 흡수판)
 
-```js
-// svelte.config.js
-const config = {
-	kit: {
-		files: {
-			lib: 'src',                      // $lib = src → src/server가 $lib/server(서버 전용 보호)
-			routes: 'src/app/routes',        // 라우팅 = app 계층 소속 (FSD 정통)
-			appTemplate: 'src/app/index.html',
-			hooks: { server: 'src/app/hooks.server', client: 'src/app/hooks.client' }
-		},
-		alias: { '@': 'src', '@/*': 'src/*' } // 임포트 표준 표기 — $lib은 내부 존재만
-	}
-};
+`@sveltejs/kit` **2.62.0+** 는 설정을 `sveltekit()` 플러그인 인자로 직접 받는다 — 전달하면 `svelte.config.js` 는 **무시**된다(공식 Configuration 문서). 수술 정본은 **vite.config 인라인**: 설정 파일 1개가 사라지고 빌드 도구 설정이 vite.config 단일 출처가 된다. `kit` 네임스페이스가 최상위로 평탄화되는 것이 구 레이아웃과의 유일한 차이이며, adapter·compilerOptions 등 나머지 svelte.config 항목도 같은 객체로 함께 흡수한다.
+
+```ts
+// vite.config.ts — sveltekit() 인라인 (svelte.config.js 폐지)
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+	plugins: [
+		sveltekit({
+			files: {
+				lib: 'src',                      // $lib = src → src/server가 $lib/server(서버 전용 보호)
+				routes: 'src/app/routes',        // 라우팅 = app 계층 소속 (FSD 정통)
+				appTemplate: 'src/app/index.html',
+				hooks: { server: 'src/app/hooks.server', client: 'src/app/hooks.client' }
+			},
+			alias: { '@': 'src', '@/*': 'src/*' } // 임포트 표준 표기 — $lib은 내부 존재만
+		})
+	]
+});
 ```
+
+**svelte.config.js 유지가 정답인 예외 4급** — 이때만 위 객체를 `kit:` 아래 두는 구판 레이아웃 그대로 쓴다: ① kit < 2.62.0(인라인 미지원) ② `preprocess`/`extensions` 사용(mdsvex·scss 등 — 에디터 언어서버(svelte-language-tools)는 vite.config 를 읽지 않고 svelte.config 만 직접 로드하므로, 컴파일러 기본값으로 부족한 변환이 있으면 파일이 남아야 에디터가 성립한다. Svelte 5 + Tailwind v4 표준 스택은 preprocess 0 이라 해당 없음) ③ `onwarn` 커스텀 필요(인라인 타입이 `Omit<Options, 'onwarn'>` 로 명시 배제) ④ 라이브러리 프로젝트(`svelte-package` 가 svelte.config 를 직접 읽음).
+
+**흡수 시 함께 갈아야 하는 svelte.config 직접 소비자**: `eslint.config.js` 의 `import svelteConfig from './svelte.config.js'` → 파서가 실제로 쓰는 최소만 인라인(`const svelteConfig = { compilerOptions: {…} }` — alias 해석은 생성 tsconfig(projectService) 몫이라 불필요). 에디터 Svelte 확장은 svelte.config 부재 시 기본값 폴백(예외 ② 가 아닌 프로젝트는 실사용 영향 0). `svelte-check --tsconfig` 는 생성 tsconfig 기반이라 무관.
 
 수술의 소프트 비용 4건(전부 완화됨): ① 생태계 사전지식(`src/routes` 가정) — 루트 CLAUDE.md 마커+audit이 교정 ② 스캐폴딩 도구 별칭 1회 설정(shadcn components.json 등) ③ 이행 규모(arch:plan이 기계 수행) ④ `$lib` 의미 변화(@ 별칭으로 표준화).
 

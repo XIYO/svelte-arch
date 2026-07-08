@@ -7,9 +7,9 @@
 - `.svelte-arch/`(CLI·config·템플릿) + 훅 마커 주입 + package scripts + 루트 CLAUDE.md 마커 블록.
 - 구 트리 감지 시 sync가 이행 필요를 알린다. **이행 전 audit·manifest는 룰 폭주 대신 plan 안내만 출력**한다.
 
-## 1. svelte.config 수술 (수동 1분 — plan이 정확한 스니펫을 출력)
+## 1. config 수술 (수동 1분 — plan이 정확한 스니펫을 출력)
 
-`files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` · hooks 경로 · `@` 별칭 (정본 = fsd-guide.md). plan `--apply`는 **수술이 끝난 상태를 전제**로 거부·안내한다.
+vite.config 의 `sveltekit()` 인라인(kit 2.62.0+ — `svelte.config.js` 폐지, 권장)으로 `files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` · hooks 경로 · `@` 별칭을 주입한다 (정본·예외 4급·eslint 동반 수정 = fsd-guide.md). plan `--apply`는 **수술이 끝난 상태를 전제**로 거부·안내한다 — vite.config·svelte.config 어느 쪽에 있든 인정.
 
 ## 2. 전수 검사 → 제안표 → 동의 (`arch:plan`)
 
