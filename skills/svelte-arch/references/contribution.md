@@ -1,6 +1,18 @@
-# 업스트림 기여 — 요구사항 → PR
+# 업스트림 기여 — 요구사항 → 직접 push / 이슈 / PR
 
-> 소비 프로젝트(또는 이 저장소 자체)에서 발견된 kit 개선 필요를 `XIYO/svelte-arch` 업스트림 PR로 formalize하는 프로토콜. 트리거 = `/arch-feedback`(자동 발동 없음 — 항상 명시적 호출). 배경·대안 비교 = `docs/superpowers/specs/2026-07-05-arch-feedback-design.md`.
+> 소비 프로젝트(또는 이 저장소 자체)에서 발견된 kit 개선 필요를 `XIYO/svelte-arch` 업스트림에 formalize하는 프로토콜. 트리거 = `/arch-feedback`(자동 발동 없음 — 항상 명시적 호출). 배경·대안 비교 = `docs/superpowers/specs/2026-07-05-arch-feedback-design.md`(원 설계는 PR 단일 경로 — 2026-07-10 실사용에서 소유자 인증·kit 소스 유무에 따라 3경로로 확장).
+
+## 전달 경로 판정 — 직접 push / 이슈 / PR
+
+push 권한(`gh api repos/XIYO/svelte-arch --jq .permissions.push`)과 kit 소스(git 클론) 확보 여부로 갈린다:
+
+| push 권한 | kit 소스 확보 | 경로 | 산출물 |
+|---|---|---|---|
+| O | O | **A. 직접 push** | main 직접 커밋·push — 이 저장소 관행. 브랜치·PR은 만들지 않는다(PR은 리뷰 대기자가 없는 소유자 단독 저장소에서 무의미) |
+| O | X (다른 컴퓨터·kit 미설치 환경·클론 여건 없음) | **B. 이슈 등록** | `gh issue create` — 풍부한 컨텍스트(분석·제안·환경정보)만 접수. **후속 = 주 작업기에서 이슈를 보고 분석·구현** |
+| X | — | **C. PR** | 외부 기여자 경로: fork → 브랜치 → 구현/제안 문서 → PR |
+
+kit 소스 해석 순서: cwd `plugin.json` → `${CLAUDE_PLUGIN_ROOT}` → **플러그인 marketplace 설치 경로**(`~/.claude/plugins/marketplaces/svelte-arch`) → 임시 클론. 플러그인 **cache**(`plugins/cache/<이름>/<버전>/`)는 버전 스냅샷일 뿐 git 저장소가 아니고, **marketplace 쪽이 origin 연결된 실제 클론**이다(2026-07-10 실측 — cache에서 `git status`는 "not a git repository").
 
 ## 규모 판정 — 기계적 vs 설계급
 
@@ -48,7 +60,35 @@
 🤖 `/arch-feedback`로 접수·작성 — Claude Code on behalf of XIYO.
 ```
 
-커밋에는 기존 관행대로 `Co-Authored-By: Claude <noreply@anthropic.com>` 트레일러를 붙인다.
+커밋에는 기존 관행대로 `Co-Authored-By: Claude <noreply@anthropic.com>` 트레일러를 붙인다. A(직접 push) 경로도 커밋 메시지·본문 구성은 동일 — PR 껍데기만 없다.
+
+## 이슈 본문 템플릿 (B 경로)
+
+제목은 PR과 동일한 Conventional Commits 스타일(구현이 아니라 요구이므로 `feat:`/`fix:` 의미는 "이렇게 되어야 한다"). 본문은 PR 템플릿에서 Changes/Checklist를 빼고 Proposal로 대체:
+
+```markdown
+## Summary
+<요구사항 원문 1~2문장 요약>
+
+## Motivation
+<왜 필요한지 — 어느 소비 프로젝트/상황에서 발견됐는지, 현행 동작의 실영향 분석>
+
+## Environment
+- OS: <platform> <release> (<arch>)
+- Runtime: bun <version>
+- kit version: <KIT_VERSION>
+- Reported from: <소비 프로젝트명>
+
+## Proposal
+<대안 비교·권고안 — 구현 판단에 필요한 컨텍스트를 최대한 담는다.
+이슈는 다른 컴퓨터에서 접수만 하는 경로라, 주 작업기에서 이 본문만 읽고
+분석·구현을 시작할 수 있어야 한다>
+
+---
+🤖 `/arch-feedback`로 접수 — Claude Code on behalf of XIYO.
+```
+
+라벨은 PR과 동일 택소노미(`type:*`·`area:*` + `source:agent-filed`). `scope:mechanical|proposal`은 구현 수위 제안으로만 붙인다.
 
 ## 환경정보 수집 — 크로스플랫폼
 
@@ -82,7 +122,7 @@ GitHub 기본 라벨(`bug`·`enhancement`·`documentation` 등)은 삭제하지 
 
 ## 안전장치
 
-- push·PR 생성 전 항상 브랜치·diff·PR 제목/라벨/본문 전문을 프리뷰하고 승인받는다.
+- push·이슈·PR 생성 전 항상 산출물 전문(A·C = 브랜치·diff·제목/라벨/본문, B = 이슈 제목/라벨/본문)을 프리뷰하고 승인받는다. **단 사용자가 같은 턴에서 이미 push/등록을 명시적으로 지시했다면 그 지시가 곧 승인** — 재확인으로 되묻지 않는다(2026-07-10 실사용 교훈).
 - 라벨 신규 생성도 별도로 확인한다(저장소의 살아있는 상태를 바꾸는 행동).
 - git identity는 사용자의 기존 설정을 그대로 쓴다(변경 금지).
 - 버전 가드(`.githooks/pre-push` → `check-version-sync.mjs`)가 기계적 경로의 버전 갱신 누락을 이미 막아준다 — 별도 검증 로직 불필요.

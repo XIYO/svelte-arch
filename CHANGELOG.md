@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.7.0 — 2026-07-10
+
+**`/arch-feedback` 전달 경로 3분기 — 직접 push / 이슈 / PR (MINOR).** v5.5.0의 PR 단일 경로를 실사용(able-gpt에서 specRoots 제안 접수)에서 확장 — push 권한(`gh api .permissions.push`)과 kit 소스(git 클론) 확보 여부로 자동 분기한다. 소유자 인증 + 로컬 클론이면 이 저장소 관행대로 **main 직접 커밋·push**(리뷰 대기자 없는 소유자 단독 저장소에서 PR 껍데기는 무의미), 다른 컴퓨터처럼 kit 소스가 없으면 **이슈로 접수만**(풍부한 컨텍스트 — 주 작업기에서 이슈를 보고 분석·구현하는 후속 전제), 권한 없는 외부 기여자만 기존 **PR** 경로.
+
+- **kit 소스 해석 보강**: 플러그인 **cache**(`plugins/cache/<이름>/<버전>/`)는 버전 스냅샷(비-git)이고 **marketplace 설치 경로**(`plugins/marketplaces/<이름>`)가 origin 연결된 실제 클론 — fallback 체인에 marketplace 경로 추가(2026-07-10 실측: cache에서 `git status` = "not a git repository").
+- **이슈 본문 템플릿 신설**(contribution.md): PR 템플릿에서 Changes/Checklist를 빼고 Proposal로 대체 — 주 작업기에서 본문만 읽고 구현을 시작할 수 있는 밀도를 요구. 라벨은 동일 택소노미(`scope:*`는 구현 수위 제안으로만).
+- **확인 게이트 완화 1건**: 같은 턴에서 사용자가 push/등록을 이미 명시 지시했다면 그 지시가 곧 승인 — 재확인으로 되묻지 않는다(실사용 교훈).
+- 문구 동기화: `commands/arch-feedback.md` 전면 개정 · `references/contribution.md`(경로 판정표·이슈 템플릿·안전장치) · `kit/templates/claude-block.md` 존재 알림 1줄.
+
 ## 5.6.0 — 2026-07-08
 
 **config 수술 정본을 vite.config `sveltekit()` 인라인으로 전환 (MINOR).** `@sveltejs/kit` 2.62.0부터 설정을 플러그인 인자로 직접 받고(전달 시 `svelte.config.js` **무시** — 공식 Configuration 문서), `kit` 네임스페이스가 최상위로 평탄화되는 것이 구 레이아웃과의 유일한 차이다. 수술이 "svelte.config 파일 신설·수정"에서 "이미 있는 vite.config 한 곳"으로 줄어 빌드 도구 설정 출처가 하나가 된다. able-gpt 실전 적용(svelte-check 3704파일 0에러 · eslint · arch:audit 통과)으로 검증한 뒤 정본을 교체했다.
