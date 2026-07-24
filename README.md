@@ -31,11 +31,34 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 ## 빠른 시작
 
+### Claude Code
+
 ```bash
-# Claude Code — 마켓플레이스 등록 + 플러그인 설치 (1회)
 /plugin marketplace add XIYO/svelte-arch
 /plugin install svelte-arch@svelte-arch
+```
 
+### Codex
+
+```bash
+# GitHub 배포본
+codex plugin marketplace add XIYO/svelte-arch
+codex plugin add svelte-arch@svelte-arch
+
+# 저장소 개발 중에는 GitHub 대신 로컬 checkout을 등록
+codex plugin marketplace add /absolute/path/to/svelte-arch
+codex plugin add svelte-arch@svelte-arch
+```
+
+마켓플레이스 등록은 최초 1회만 필요하다. GitHub 배포본 업데이트는
+`codex plugin marketplace upgrade svelte-arch` 후 플러그인을 다시 설치한다.
+로컬 checkout은 현재 파일을 직접 읽는다. 변경을 다시 설치할 때는 Codex manifest의
+버전을 갱신한 뒤 `codex plugin add svelte-arch@svelte-arch`를 다시 실행한다.
+새 스킬을 확실히 로드하려면 설치 후 새 대화를 시작한다.
+
+### 프로젝트 kit 주입
+
+```bash
 # 아무 SvelteKit 프로젝트에서 — 설치·업데이트·마이그레이션이 한 명령
 bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 # 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘" (/arch-sync)
@@ -52,16 +75,17 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 
 ### 릴리스 버전 동기화 가드 (저장소 기여자용)
 
-이 저장소의 릴리스 버전은 네 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 `/plugin`이 옛 버전을 보고하거나(`plugin.json` 방치) 설치본과 소스가 어긋난다:
+이 저장소의 릴리스 버전은 다섯 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 Claude/Codex가 옛 버전을 보고하거나 설치본과 소스가 어긋난다:
 
 | 소스 | 위치 |
 | --- | --- |
 | `kit/VERSION` | **SSOT** — `sync.mjs`가 런타임에 읽는 값 |
 | `arch.mjs` `KIT_VERSION` | 하드코딩(설치본 `.svelte-arch/arch.mjs` 자기완결 — audit·마커에 노출) |
-| `plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
+| `.claude-plugin/plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
+| `.codex-plugin/plugin.json` `version` | Codex가 읽는 값 |
 | `CHANGELOG.md` 최상단 `## X.Y.Z` | 릴리스 기록 |
 
-`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 넷의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
+`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 다섯 소스의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
 
 ```bash
 git config core.hooksPath .githooks

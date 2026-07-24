@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.8.0 — 2026-07-24
+
+**Codex 플러그인 배포 지원 (MINOR).** 기존 Claude Code 플러그인과 같은 저장소·같은 `skills/svelte-arch` 정본을 Codex에서도 설치할 수 있도록 Codex manifest와 저장소 마켓플레이스를 추가했다.
+
+- `.codex-plugin/plugin.json`: Codex용 manifest·UI 메타데이터·starter prompt를 추가하고 `skills/`를 명시했다.
+- `.agents/plugins/marketplace.json`: 저장소 루트의 `svelte-arch` 플러그인을 공개하는 Codex 마켓플레이스를 추가했다.
+- 설치 문서: 로컬 개발 저장소와 GitHub 저장소를 각각 Codex 마켓플레이스로 등록하고 설치·업데이트하는 명령을 추가했다.
+- 릴리스 가드: Claude manifest뿐 아니라 Codex manifest 버전도 `kit/VERSION`·`arch.mjs`·CHANGELOG와 일치하는지 검사한다.
+
 ## 5.7.0 — 2026-07-10
 
 **`/arch-feedback` 전달 경로 3분기 — 직접 push / 이슈 / PR (MINOR).** v5.5.0의 PR 단일 경로를 실사용(able-gpt에서 specRoots 제안 접수)에서 확장 — push 권한(`gh api .permissions.push`)과 kit 소스(git 클론) 확보 여부로 자동 분기한다. 소유자 인증 + 로컬 클론이면 이 저장소 관행대로 **main 직접 커밋·push**(리뷰 대기자 없는 소유자 단독 저장소에서 PR 껍데기는 무의미), 다른 컴퓨터처럼 kit 소스가 없으면 **이슈로 접수만**(풍부한 컨텍스트 — 주 작업기에서 이슈를 보고 분석·구현하는 후속 전제), 권한 없는 외부 기여자만 기존 **PR** 경로.

@@ -1,0 +1,39 @@
+{
+  "name": "svelte-arch",
+  "version": "5.8.0",
+  "description": "SvelteKit × FSD 2.1 architecture advisor and injectable project kit.",
+  "author": {
+    "name": "XIYO",
+    "url": "https://github.com/XIYO"
+  },
+  "homepage": "https://github.com/XIYO/svelte-arch",
+  "repository": "https://github.com/XIYO/svelte-arch",
+  "license": "MIT",
+  "keywords": [
+    "svelte",
+    "sveltekit",
+    "architecture",
+    "feature-sliced-design",
+    "fsd",
+    "design-system",
+    "lint"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Svelte Arch",
+    "shortDescription": "SvelteKit × FSD 2.1 architecture advisor",
+    "longDescription": "SvelteKit 프로젝트에 FSD 2.1 계층, 서버 경계, view/container 규율, 실행형 매니페스트와 감사 도구를 적용합니다.",
+    "developerName": "XIYO",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Analyze",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/XIYO/svelte-arch",
+    "defaultPrompt": [
+      "이 SvelteKit 프로젝트의 아키텍처를 감사해줘.",
+      "이 프로젝트에 svelte-arch kit을 설치해줘.",
+      "새 기능을 FSD 2.1 규칙에 맞게 배치해줘."
+    ]
+  }
+}
