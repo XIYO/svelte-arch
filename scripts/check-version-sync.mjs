@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * 릴리스 버전 동기화 가드 — svelte-arch 저장소 자체 유지보수 스크립트(소비 프로젝트에 배포되는 kit 아님).
  *
@@ -16,67 +16,72 @@
  * VERSION 을 런타임에 읽지 않고 하드코딩한다(의도적). 그래서 둘이 별개 소스로 남아 드리프트 위험이
  * 있고, 이 가드가 그걸 막는다.
  *
- * 실행: `bun scripts/check-version-sync.mjs` 또는 `node scripts/check-version-sync.mjs`
+ * 실행: `bun scripts/check-version-sync.mjs` (Bun 전용)
  */
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (rel) => readFileSync(join(repoRoot, rel), 'utf8');
+const repoRoot = new URL("../", import.meta.url);
+const read = (rel) => Bun.file(new URL(rel, repoRoot)).text();
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
 /** skills/svelte-arch/kit/VERSION 파일 — sync.mjs 가 읽는 SSOT. */
-function versionFile() {
-	return read('skills/svelte-arch/kit/VERSION').trim();
+async function versionFile() {
+  return (await read("skills/svelte-arch/kit/VERSION")).trim();
 }
 
 /** plugin manifest의 version 필드. */
-function pluginVersion(path) {
-	const v = JSON.parse(read(path)).version;
-	if (typeof v !== 'string') throw new Error(`${path}에 version 문자열이 없습니다`);
-	return v;
+async function pluginVersion(path) {
+  const v = JSON.parse(await read(path)).version;
+  if (typeof v !== "string")
+    throw new Error(`${path}에 version 문자열이 없습니다`);
+  return v;
 }
 
 /** arch.mjs 의 `const KIT_VERSION = 'X.Y.Z'`. */
-function kitVersion() {
-	const m = read('skills/svelte-arch/kit/scripts/arch.mjs').match(
-		/const\s+KIT_VERSION\s*=\s*'([^']+)'/
-	);
-	if (!m) throw new Error('arch.mjs 에서 KIT_VERSION 을 찾지 못했습니다');
-	return m[1];
+async function kitVersion() {
+  const m = (await read("skills/svelte-arch/kit/scripts/arch.mjs")).match(
+    /const\s+KIT_VERSION\s*=\s*'([^']+)'/,
+  );
+  if (!m) throw new Error("arch.mjs 에서 KIT_VERSION 을 찾지 못했습니다");
+  return m[1];
 }
 
 /** CHANGELOG.md 최상단 `## X.Y.Z` 헤딩의 버전. */
-function changelogVersion() {
-	const m = read('CHANGELOG.md').match(/^##\s+(\d+\.\d+\.\d+)/m);
-	if (!m) throw new Error('CHANGELOG.md 에서 최상단 "## X.Y.Z" 헤딩을 찾지 못했습니다');
-	return m[1];
+async function changelogVersion() {
+  const m = (await read("CHANGELOG.md")).match(/^##\s+(\d+\.\d+\.\d+)/m);
+  if (!m)
+    throw new Error(
+      'CHANGELOG.md 에서 최상단 "## X.Y.Z" 헤딩을 찾지 못했습니다',
+    );
+  return m[1];
 }
 
 const sources = {
-	'kit/VERSION (SSOT)': versionFile(),
-	'arch.mjs KIT_VERSION': kitVersion(),
-	'Claude plugin.json': pluginVersion('.claude-plugin/plugin.json'),
-	'Codex plugin.json': pluginVersion('.codex-plugin/plugin.json'),
-	'CHANGELOG.md 최상단': changelogVersion()
+  "kit/VERSION (SSOT)": await versionFile(),
+  "arch.mjs KIT_VERSION": await kitVersion(),
+  "Claude plugin.json": await pluginVersion(".claude-plugin/plugin.json"),
+  "Codex plugin.json": await pluginVersion(".codex-plugin/plugin.json"),
+  "CHANGELOG.md 최상단": await changelogVersion(),
 };
 
 const bad = Object.entries(sources).filter(([, v]) => !SEMVER.test(v));
 if (bad.length) {
-	console.error('\x1b[31m✗\x1b[0m 버전 형식 오류(semver X.Y.Z 아님):');
-	for (const [name, v] of bad) console.error(`    ${name}: "${v}"`);
-	process.exit(1);
+  console.error("\x1b[31m✗\x1b[0m 버전 형식 오류(semver X.Y.Z 아님):");
+  for (const [name, v] of bad) console.error(`    ${name}: "${v}"`);
+  process.exit(1);
 }
 
 const distinct = [...new Set(Object.values(sources))];
 if (distinct.length !== 1) {
-	console.error('\x1b[31m✗\x1b[0m 릴리스 버전 불일치 — 다섯 소스가 달라 push 를 막습니다:');
-	for (const [name, v] of Object.entries(sources)) console.error(`    ${name.padEnd(22)} ${v}`);
-	console.error('\n  → 다섯 곳을 같은 버전으로 맞춘 뒤 다시 push 하세요.');
-	process.exit(1);
+  console.error(
+    "\x1b[31m✗\x1b[0m 릴리스 버전 불일치 — 다섯 소스가 달라 push 를 막습니다:",
+  );
+  for (const [name, v] of Object.entries(sources))
+    console.error(`    ${name.padEnd(22)} ${v}`);
+  console.error("\n  → 다섯 곳을 같은 버전으로 맞춘 뒤 다시 push 하세요.");
+  process.exit(1);
 }
 
-console.log(`\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 다섯 소스 모두 v${distinct[0]}`);
+console.log(
+  `\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 다섯 소스 모두 v${distinct[0]}`,
+);

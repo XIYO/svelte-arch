@@ -5,7 +5,7 @@ SliceSection — example slice 의 화면 루트. 역할 한 문장으로 교체
 <script lang="ts">
 	// 타입은 wire 계약(model/types)에서 참조만 — 재선언 금지 (Pick/Omit 파생만)
 	import type { Item } from '../model/types';
-	import EmptyState from '@/shared/ui/EmptyState.view.svelte';
+	import EmptyState from '$lib/shared/ui/EmptyState.view.svelte';
 
 	type Props = {
 		/** undefined = 로딩 — container 의 pending 이 이 view 를 재사용해 스켈레톤을 그린다 */

@@ -14,7 +14,7 @@ export default {
 	// 공개 부채 목록 — 항목마다 사유·백로그 링크 주석 의무. 줄어드는 것만 허용된다 (이행기 전용).
 	allow: {
 		crossSlice: [
-			// 'src/widgets/foo/ui/Foo.view.svelte', // 예: 하강 이행 전 — 백로그 #NN
+			// 'src/lib/widgets/foo/ui/Foo.view.svelte', // 예: 하강 이행 전 — 백로그 #NN
 		],
 		containerOutsideGlue: []
 	},
@@ -27,6 +27,17 @@ export default {
 
 	// slice index 재수출 상한 (HEAVY_REEXPORT warn — 배럴 비대 = slice 분할 신호)
 	heavyReexportMax: 12,
+
+	// 인증 경계 — 보호 라우트의 view/container가 로그인 여부를 다시 판단하지 않게 한다.
+	// 경로는 프로젝트 루트 기준 디렉터리 prefix, entryPaths는 인증 진입 URL이다.
+	// 보호는 +layout.server.ts의 guard, Remote/API/action은 각 요청 경계의 guard가 담당한다.
+	authentication: {
+		protectedRouteDirs: [],
+		entryPaths: ['/auth', '/login', '/sign-in'],
+		// 명시적 로그인/로그아웃 mutation 성공 후 인증 화면으로 전환하는 container만 정확한 파일로 선언.
+		// useSession 재조회는 이 목록과 무관하게 계속 금지된다.
+		transitionComponents: []
+	},
 
 	// 프로젝트 확장 룰 — { code, desc, severity, kinds, pattern|check }
 	// 승격 절차 5단계(재발방지 룰)가 끝날 때마다 여기 하나씩 쌓인다 = 승격의 역사.

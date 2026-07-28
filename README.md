@@ -3,23 +3,25 @@
 **SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷.**
 FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·실행형 매니페스트 발견성)을 자체 규범으로 채운다 — 목적은 하나, **같은 것을 두 번 만들지 않게** 하고 팀(사람+AI 에이전트)이 실수할 자리를 없앤다.
 
-> A Feature-Sliced Design 2.1 advisor & injectable kit for SvelteKit — FSD layers/slices/segments translated into SvelteKit's official config surgery, plus the half FSD leaves blank: a server layer standard (remote→service→repository), a dumb/smart suffix overlay (.view/.container), and an executable manifest that feeds fresh metadata to LLM agents.
+> A Feature-Sliced Design 2.1 advisor & injectable kit for SvelteKit — FSD layers/slices/segments on SvelteKit's official default paths, plus the half FSD leaves blank: a server layer standard (remote→service→repository), a dumb/smart suffix overlay (.view/.container), an authentication boundary, and an executable manifest that feeds fresh metadata to LLM agents.
+
+> **런타임은 Bun 전용입니다.** kit·audit·마이그레이션·릴리스 가드는 Bun으로 실행하며, Node fallback은 지원하지 않습니다. `node:` 표준 라이브러리 import는 Bun의 호환 레이어 사용일 뿐 Node 런타임 의존이 아닙니다.
 
 ## 4단 주소 체계
 
 ```text
 계층 / slice / segment / 접미사
-src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
+src/lib/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 ```
 
 | 계층 | 역할 |
 |---|---|
-| `src/app/` | 초기화 — index.html·hooks·app.css·**routes/**(글루 + pages first 콜로케이션) |
-| `src/widgets/` | 자립 대형 블록 (view/container 페어 = 독립 데이터 섬) |
-| `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
-| `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model)·remote(api) |
-| `src/shared/` | 업무 무관 — ui(디자인 시스템)·vendor(shadcn 보존)·lib·model·config |
-| `src/server/` | FSD 밖 병렬 스택(`$lib/server` 보호) — slice별 port(계약)·service·repository·adapter |
+| `src/` + `src/routes/` | 초기화(app.html·hooks·app.css) + 글루/pages first 콜로케이션 |
+| `src/lib/widgets/` | 자립 대형 블록 (view/container 페어 = 독립 데이터 섬) |
+| `src/lib/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
+| `src/lib/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model)·remote(api) |
+| `src/lib/shared/` | 업무 무관 — ui(디자인 시스템)·vendor(shadcn 보존)·lib·model·config |
+| `src/lib/server/` | FSD 밖 병렬 스택(`$lib/server` 보호) — slice별 port(계약)·service·repository·adapter |
 
 핵심 규칙: 계층은 아래로만 · 같은 계층 slice 수평 금지 · slice 소비는 public API(index)로만, shared는 딥 임포트만 · remote → service만(건너뛰기 0) · 클래스는 내장 `class={[...]}` 배열만 · **배치 사다리** = 새 코드는 라우트 콜로케이션에서 태어나 둘째 소비자가 생길 때만 하강(FSD 2.1 pages first).
 
@@ -27,7 +29,7 @@ src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(55룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(57룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
 
 ## 빠른 시작
 
@@ -64,9 +66,9 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 # 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘" (/arch-sync)
 ```
 
-설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + CLAUDE.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice CLAUDE.md 씨앗(없는 곳만). 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
+설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + AGENTS.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice AGENTS.md 씨앗(없는 곳만). root는 운영 카드, 범위 매뉴얼은 역할 1행+두 bullet만 유지하며 audit이 32KiB/16KiB 초과를 경고한다. 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
 
-기존(비-FSD) 프로젝트는 `arch:plan`이 이행 제안표(config 수술(vite.config `sveltekit()` 인라인) + 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱**)를 산출하고, 사용자 승인 후에만 `--apply`한다.
+기존(비-FSD) 프로젝트는 SvelteKit 공식 기본 좌표(`src/routes`·`src/lib`)를 유지한 채 `arch:plan`이 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱** 제안표를 산출하고, 사용자 승인 후에만 `--apply`한다.
 
 ## 버전·업데이트
 
@@ -99,7 +101,7 @@ git config core.hooksPath .githooks
 commands/              # 슬래시 커맨드 — arch-sync(설치)·arch-feedback(업스트림 기여)
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 55룰·매니페스트·도입·kit·업스트림 기여
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 57룰·매니페스트·도입·kit·업스트림 기여
 └── kit/              # sync.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 

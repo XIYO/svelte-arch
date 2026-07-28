@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v5)
+ * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v6)
  *
  * ⚠ kit-owned — 직접 수정 금지. 업데이트(init 재실행) 시 덮어써진다.
  *    프로젝트 확장(룰·allowlist·중립 리터럴·pages 개방)은 .svelte-arch/config.mjs 에.
@@ -25,13 +25,14 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, rename, unlink, rmdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '5.8.0';
+const KIT_VERSION = '6.0.0';
 const ROOT = process.cwd();
+const LIB_ROOT = 'src/lib';
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = [join(SELF_DIR, 'templates'), join(SELF_DIR, '../templates')].find((d) => existsSync(d));
 
@@ -47,6 +48,11 @@ const DEFAULT_CONFIG = {
 	layers: { pages: false },
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '삭제', '검색', '선택', '목록으로', '미리보기', '로딩 중…', '불러오는 중…', '검색 결과가 없습니다'],
 	allow: { crossSlice: [], containerOutsideGlue: [] },
+	authentication: {
+		protectedRouteDirs: [],
+		entryPaths: ['/auth', '/login', '/sign-in'],
+		transitionComponents: []
+	},
 	// 서버 인프라 slice 선언 — 여기 등재된 slice는 CROSS_SLICE_SERVER_IMPORT의 대상(target) 면제.
 	// 코어 면제(shared·database·auth)에 더해진다. 도메인 어휘 없는 서버 전용 엔진(llm·crypto·email 등)용.
 	serverInfraSlices: [],
@@ -67,6 +73,10 @@ async function loadConfig() {
 	return {
 		...DEFAULT_CONFIG, ...c,
 		layers: { ...DEFAULT_CONFIG.layers, ...(c.layers ?? {}) },
+		authentication: {
+			...DEFAULT_CONFIG.authentication,
+			...(c.authentication ?? {})
+		},
 		allow
 	};
 }
@@ -89,22 +99,21 @@ function locate(rel) {
 	const parts = norm(rel).split('/');
 	if (parts[0] !== 'src') return { area: 'other' };
 	const l1 = parts[1];
-	if (l1 === 'server') {
-		const slice = parts.length > 3 ? parts[2] : null; // src/server/<slice>/file (루트 직파일은 slice null)
+	if (l1 === 'routes') return { area: 'routes' };
+	if (/^(?:app\.html|app\.css|hooks(?:\.server|\.client)?\.(?:ts|js))$/.test(parts.slice(1).join('/'))) return { area: 'app' };
+	if (l1 !== 'lib') return { area: 'other' };
+	const l2 = parts[2];
+	if (l2 === 'server') {
+		const slice = parts.length > 4 ? parts[3] : null; // src/lib/server/<slice>/file (루트 직파일은 slice null)
 		return { area: 'server', slice };
 	}
-	if (l1 === 'app') {
-		if (parts[2] === 'routes') return { area: 'routes' };
-		return { area: 'app' };
-	}
-	if (LAYERS.includes(l1)) {
-		if (l1 === 'shared') {
-			const segment = parts.length > 3 ? parts[2] : (parts.length === 3 && !parts[2].includes('.') ? parts[2] : parts.length > 2 && SHARED_SEGMENTS.includes(parts[2]) ? parts[2] : null);
-			return { area: 'client', layer: 'shared', slice: 'shared', segment: SHARED_SEGMENTS.includes(parts[2]) ? parts[2] : null, vendor: parts[2] === 'vendor' };
+	if (LAYERS.includes(l2)) {
+		if (l2 === 'shared') {
+			return { area: 'client', layer: 'shared', slice: 'shared', segment: SHARED_SEGMENTS.includes(parts[3]) ? parts[3] : null, vendor: parts[3] === 'vendor' };
 		}
-		const slice = parts.length > 3 ? parts[2] : null;
-		const segment = parts.length > 4 ? parts[3] : null;
-		return { area: 'client', layer: l1, slice, segment };
+		const slice = parts.length > 4 ? parts[3] : null;
+		const segment = parts.length > 5 ? parts[4] : null;
+		return { area: 'client', layer: l2, slice, segment };
 	}
 	return { area: 'other' };
 }
@@ -158,22 +167,24 @@ async function collectFiles() {
 }
 
 function isLegacyTree() {
-	return existsSync(join(ROOT, 'src/lib/components')) || existsSync(join(ROOT, 'src/lib/server')) ||
-		(existsSync(join(ROOT, 'src/routes')) && !existsSync(join(ROOT, 'src/app/routes')));
+	const oldRoots = ['src/app/routes', 'src/server', 'src/shared', 'src/entities', 'src/features', 'src/widgets', 'src/pages'];
+	return oldRoots.some((path) => existsSync(join(ROOT, path)) && readdirSync(join(ROOT, path)).length > 0)
+		|| (existsSync(join(ROOT, 'src/lib/components'))
+			&& !LAYERS.some((layer) => existsSync(join(ROOT, LIB_ROOT, layer))));
 }
 
 function legacyNotice(cmd) {
 	console.log(`⚠ 구(비-FSD) 구조 감지 — ${cmd}는 FSD 좌표계 전제라 룰을 돌리지 않습니다.`);
 	console.log(`  이행 절차: ① bun run arch:plan (제안표) → ② 사용자 승인 + plan-overrides.json 조정 → ③ bun run arch:plan -- --apply`);
-	console.log(`  상세 = svelte-arch 스킬 references/adoption.md (config 수술 포함)`);
+	console.log(`  상세 = svelte-arch 스킬 references/adoption.md`);
 }
 
 // ── 임포트 그래프 (배럴 투명 해석 — 상대·@/·$lib/ 전부 resolve) ──────────
 function resolveSpec(spec, importerRel, fileSet) {
 	let p = null;
-	if (spec.startsWith('@/')) p = 'src/' + spec.slice(2);
-	else if (spec.startsWith('$lib/')) p = 'src/' + spec.slice(5); // v4: lib=src
-	else if (spec === '$lib') p = 'src';
+	if (spec.startsWith('@/')) p = `${LIB_ROOT}/` + spec.slice(2);
+	else if (spec.startsWith('$lib/')) p = `${LIB_ROOT}/` + spec.slice(5);
+	else if (spec === '$lib') p = LIB_ROOT;
 	else if (spec.startsWith('./') || spec.startsWith('../')) {
 		const segs = (dirname(importerRel) + '/' + spec).split('/');
 		const out = [];
@@ -419,9 +430,9 @@ function renderDetail(f, consumers, files, indent = '') {
 	return lines;
 }
 
-async function claudeFirstLine(dir) {
+async function agentsFirstLine(dir) {
 	try {
-		const c = await readFile(join(dir, 'CLAUDE.md'), 'utf-8');
+		const c = await readFile(join(dir, 'AGENTS.md'), 'utf-8');
 		// 구분자는 em-dash(—)만 — ASCII 하이픈을 자르면 kebab-case slice명(A7 의무)이 붕괴한다
 		return c.split('\n')[0]?.replace(/^#\s*[^—]*—\s*/, '').replace(/^#\s*/, '').trim() ?? '';
 	} catch { return ''; }
@@ -481,7 +492,7 @@ async function runManifest(args, config, files) {
 			if (qLayer && l !== qLayer) continue;
 			for (const [slice, sfiles] of layerSlices[l]) {
 				if (!slice.includes(qName)) continue;
-				out.push('', `## ${l}/${slice} — ${(await claudeFirstLine(join(ROOT, 'src', l, slice))) || '(CLAUDE.md 1행 없음)'}`);
+				out.push('', `## ${l}/${slice} — ${(await agentsFirstLine(join(ROOT, LIB_ROOT, l, slice))) || '(AGENTS.md 1행 없음)'}`);
 				for (const f of sfiles.filter((x) => x.kind === 'view')) out.push('', ...renderDetail(f, consumers, files));
 				for (const f of sfiles.filter((x) => x.kind === 'remote')) {
 					out.push('', `### api/${basename(f.rel)} — remote 시그니처`);
@@ -540,9 +551,9 @@ async function runManifest(args, config, files) {
 			const views = sfiles.filter((x) => x.kind === 'view').length;
 			const containers = sfiles.filter((x) => x.kind === 'container').length;
 			const hasStory = sfiles.some((x) => ['stories', 'spec'].includes(x.kind));
-			const one = await claudeFirstLine(join(ROOT, 'src', l, slice));
+			const one = await agentsFirstLine(join(ROOT, LIB_ROOT, l, slice));
 			const consumed = new Set(sfiles.flatMap((x) => [...(consumers.get(x.rel) ?? [])])).size;
-			out.push(`${slice} · view ${views}${containers ? ` · ⚡container ${containers}` : ''}${hasStory ? ' · 📖' : ''} · ${one || '(CLAUDE.md 1행 없음)'} · 소비 ${consumed}곳`);
+			out.push(`${slice} · view ${views}${containers ? ` · ⚡container ${containers}` : ''}${hasStory ? ' · 📖' : ''} · ${one || '(AGENTS.md 1행 없음)'} · 소비 ${consumed}곳`);
 		}
 	}
 	if (serverSlices.size) out.push('', `## server — ${[...serverSlices.keys()].sort().join(' · ')} (상세는 --slice <이름>)`);
@@ -550,10 +561,37 @@ async function runManifest(args, config, files) {
 	return 0;
 }
 
-// ── audit — 55룰 ─────────────────────────────────────────────────────────
+// ── audit — 57룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
 const TEAM_SVELTE = new Set(['view', 'container', 'glue']);
 const GLUE_KINDS = new Set(['glue', 'glue-server', 'glue-universal']); // 라우트 글루 — 자기 페이지 전속 위젯 마운트는 INSIGNIFICANT_SLICE 소비로 세지 않는다
+const AGENTS_CONTEXT_BUDGET = { root: 32 * 1024, scoped: 16 * 1024 };
+
+/**
+ * AGENTS.md는 자동 로드되므로 파일 크기도 프로젝트 품질 신호다.
+ * root는 매 세션, 하위 매뉴얼은 해당 범위 작업마다 전량 주입된다. 경고만 내고
+ * 프로젝트 고유의 불가피한 상세는 사람이 검토하게 한다.
+ */
+async function collectAgentsContextBudgetWarnings() {
+	const warnings = [];
+	for await (const abs of walk(ROOT)) {
+		if (basename(abs) !== 'AGENTS.md') continue;
+		const rel = norm(relative(ROOT, abs));
+		const bytes = new TextEncoder().encode(await readFile(abs, 'utf-8')).byteLength;
+		const isRoot = rel === 'AGENTS.md';
+		const budget = isRoot ? AGENTS_CONTEXT_BUDGET.root : AGENTS_CONTEXT_BUDGET.scoped;
+		if (bytes <= budget) continue;
+		warnings.push(v(
+			rel,
+			1,
+			`${Math.ceil(bytes / 1024)} KiB > ${budget / 1024} KiB`,
+			'AGENTS_CONTEXT_BUDGET',
+			'warn',
+			`${isRoot ? '루트' : '범위'} AGENTS.md 컨텍스트 예산 초과 — 규칙은 한 줄로, 상세는 코드·정본 링크로 하강`
+		));
+	}
+	return warnings;
+}
 
 async function collectViolations(files, config, filesArg = null) {
 	const { edges, fileSet, barrels } = buildGraph(files);
@@ -598,7 +636,7 @@ async function collectViolations(files, config, filesArg = null) {
 		if (tl?.area === 'client' && SLICED.includes(tl.layer) && tl.slice && T.kind !== 'barrel' && !e.viaIndex) {
 			const sameSlice = fl.area === 'client' && fl.layer === tl.layer && fl.slice === tl.slice;
 			if (!sameSlice)
-				push(v(F, e.line, spec, 'DEEP_IMPORT_INTO_SLICE', 'error', `타 slice 내부 직접 접근 — public API(@/${tl.layer}/${tl.slice}) 경유 의무`));
+				push(v(F, e.line, spec, 'DEEP_IMPORT_INTO_SLICE', 'error', `타 slice 내부 직접 접근 — public API($lib/${tl.layer}/${tl.slice}) 경유 의무`));
 		}
 		// container 소비
 		if (T.kind === 'container' && F.kind !== 'glue' && !(fl.area === 'client' && fl.layer === tl?.layer && fl.slice === tl?.slice && F.kind === 'barrel') && !config.allow.containerOutsideGlue.includes(F.rel))
@@ -616,7 +654,7 @@ async function collectViolations(files, config, filesArg = null) {
 			push(v(F, e.line, spec, 'SHARED_UI_PURITY', 'error', 'shared의 server·remote 접근 — 업무 무지 위반'));
 		// 서버 경계
 		if (tl?.area === 'server' && fl.area !== 'server' && !e.typeOnly && !['remote', 'glue-server', 'endpoint', 'hooks'].includes(F.kind))
-			push(v(F, e.line, spec, 'SERVER_BOUNDARY', 'error', 'src/server 값 import는 remote·글루서버·endpoint·hooks만'));
+			push(v(F, e.line, spec, 'SERVER_BOUNDARY', 'error', 'src/lib/server 값 import는 remote·글루서버·endpoint·hooks만'));
 		// remote 체인
 		if (F.kind === 'remote' && !e.typeOnly) {
 			if (['repository', 'adapter'].includes(T.kind)) push(v(F, e.line, spec, 'REMOTE_SKIPS_SERVICE', 'error', 'remote → service만 (건너뛰기 0, 얇은 service를 감수)'));
@@ -654,6 +692,39 @@ async function collectViolations(files, config, filesArg = null) {
 	for (const f of files) {
 		if (!inScope(f)) continue;
 		const loc = f.loc, kind = f.kind;
+		const protectedRouteDir = config.authentication.protectedRouteDirs
+			.map((path) => norm(path).replace(/\/+$/, ''))
+			.find((path) => f.rel === path || f.rel.startsWith(`${path}/`));
+		if (protectedRouteDir && ['view', 'container'].includes(kind)) {
+			const ownsExplicitAuthTransition = config.authentication.transitionComponents
+				.map(norm)
+				.includes(f.rel);
+			const entryPaths = config.authentication.entryPaths
+				.filter((path) => typeof path === 'string' && path.startsWith('/'))
+				.map((path) => path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+			const patterns = [
+				/\buseSession\s*\(/g,
+				/\bauthClient\s*\.\s*useSession\s*\(/g
+			];
+			if (entryPaths.length && !ownsExplicitAuthTransition) {
+				const alternatives = entryPaths.join('|');
+				patterns.push(new RegExp(`\\b(?:resolve|goto|redirect)\\s*\\(\\s*['"](?:${alternatives})['"]`, 'g'));
+				patterns.push(new RegExp(`\\bhref\\s*=\\s*(?:\\{\\s*)?['"](?:${alternatives})['"]`, 'g'));
+			}
+			for (const pattern of patterns) {
+				for (const match of f.content.matchAll(pattern)) {
+					const line = f.content.slice(0, match.index).split('\n').length;
+					out.push(v(
+						f,
+						line,
+						match[0],
+						'PROTECTED_COMPONENT_AUTH_BRANCH',
+						'error',
+						`보호 route(${protectedRouteDir})의 view/container가 인증을 재판단 — +layout.server guard와 앱 전역 만료 경계가 소유`
+					));
+				}
+			}
+		}
 		if (kind === 'unmarked-svelte')
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_COMPONENT', 'error', '무표 .svelte — .view/.container/.stories/글루로 역할 선언 (routes 콜로케이션 포함)'));
 		if (kind === 'unmarked-ts' && loc.area !== 'other')
@@ -697,7 +768,7 @@ async function collectViolations(files, config, filesArg = null) {
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', 'types는 model segment에만'));
 		// 서버 배치
 		if (['service', 'repository', 'adapter', 'guard', 'schema', 'port'].includes(kind)) {
-			if (loc.area !== 'server') out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', `서버 종별(.${kind})은 src/server/** 의무 — 서버 전용 보호`));
+			if (loc.area !== 'server') out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', `서버 종별(.${kind})은 src/lib/server/** 의무 — 서버 전용 보호`));
 			else if (['service', 'repository', 'adapter', 'port'].includes(kind) && !loc.slice) out.push(v(f, 1, f.rel, 'SERVER_KIND_PLACEMENT', 'error', 'service·repository·adapter·port는 server/<slice|shared>/ 폴더 의무'));
 		}
 		// remote 값 export
@@ -811,7 +882,7 @@ async function collectViolations(files, config, filesArg = null) {
 		}
 	}
 
-	// ── 구조 룰 (배럴·slice·CLAUDE.md·해치·INSIGNIFICANT) ──
+	// ── 구조 룰 (배럴·slice·AGENTS.md·해치·INSIGNIFICANT) ──
 	const hatch = new Map();
 	for (const f of files.filter((x) => x.kind === 'view' && !x.loc.vendor)) {
 		for (const m of f.content.matchAll(/\b([a-z][A-Za-z]*Class)=(?:"([^"]+)"|\{'([^']+)'\})/g)) {
@@ -826,13 +897,14 @@ async function collectViolations(files, config, filesArg = null) {
 		for (const s of sites) if (inScope(s.f)) out.push(v(s.f, s.line, key.split('::')[0], 'DUPLICATE_ESCAPE_HATCH', 'error', '동일 이스케이프 해치 복붙 — shared/ui variant로 승격'));
 	}
 	if (!filesArg?.length) {
+		out.push(...await collectAgentsContextBudgetWarnings());
 		// 배럴 위치·내용
 		for (const f of files.filter((x) => x.kind === 'barrel' && !x.loc.vendor)) {
 			const r = norm(f.rel);
-			const layerRoot = LAYERS.some((l) => r === `src/${l}/index.ts`);
+			const layerRoot = LAYERS.some((l) => r === `${LIB_ROOT}/${l}/index.ts`);
 			if (layerRoot) { out.push(v(f, 1, 'index.ts', 'NO_LAYER_PUBLIC_API', 'error', '계층 루트 배럴 금지 (steiger 동명 룰)')); continue; }
-			if (/^src\/shared\/(ui|lib)\/index\.ts$/.test(r)) { out.push(v(f, 1, 'index.ts', 'NO_SHARED_MEGA_BARREL', 'error', 'shared/ui·lib 통합 배럴 금지 — 딥 임포트 (FSD 공식 처방)')); continue; }
-			const sliceIndex = SLICED.some((l) => new RegExp(`^src/${l}/[^/]+/index\\.ts$`).test(r)) || /^src\/shared\/ui\/[^/]+\/index\.ts$/.test(r);
+			if (/^src\/lib\/shared\/(ui|lib)\/index\.ts$/.test(r)) { out.push(v(f, 1, 'index.ts', 'NO_SHARED_MEGA_BARREL', 'error', 'shared/ui·lib 통합 배럴 금지 — 딥 임포트 (FSD 공식 처방)')); continue; }
+			const sliceIndex = SLICED.some((l) => new RegExp(`^${LIB_ROOT}/${l}/[^/]+/index\\.ts$`).test(r)) || /^src\/lib\/shared\/ui\/[^/]+\/index\.ts$/.test(r);
 			if (!sliceIndex) { out.push(v(f, 1, r, 'SLICE_PUBLIC_API', 'error', 'index.ts는 slice 루트(또는 shared/ui 세트)만 합법')); continue; }
 			// 문장 단위 검사 — 포매터가 개행한 여러 줄 재수출도 인정. 재수출 문장 스팬 밖의
 			// 비어있지 않은 라인(로직·외부 재수출)만 위반으로 지목한다.
@@ -852,48 +924,48 @@ async function collectViolations(files, config, filesArg = null) {
 			});
 			if (reexports > config.heavyReexportMax) out.push(v(f, 1, `재수출 ${reexports}개`, 'HEAVY_REEXPORT', 'warn', 'slice 분할 신호 — 배럴 비대'));
 		}
-		// slice public API 부재 + segment 검사 + CLAUDE.md + INSIGNIFICANT
+		// slice public API 부재 + segment 검사 + AGENTS.md + INSIGNIFICANT
 		for (const l of SLICED) {
-			const dir = join(ROOT, 'src', l);
+			const dir = join(ROOT, LIB_ROOT, l);
 			if (!existsSync(dir)) continue;
 			if (l === 'pages' && !config.layers.pages) {
-				if ((await readdir(dir).catch(() => [])).length) out.push(v(`src/pages/`, 1, 'pages 계층', 'SEGMENT_UNKNOWN', 'error', 'pages 계층은 닫힘 — routes 콜로케이션이 전담 (config.layers.pages로만 개방)'));
+				if ((await readdir(dir).catch(() => [])).length) out.push(v(`${LIB_ROOT}/pages/`, 1, 'pages 계층', 'SEGMENT_UNKNOWN', 'error', 'pages 계층은 닫힘 — routes 콜로케이션이 전담 (config.layers.pages로만 개방)'));
 				continue;
 			}
 			for (const e of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
 				if (!e.isDirectory()) continue;
 				const sliceDir = join(dir, e.name);
-				if (!existsSync(join(sliceDir, 'index.ts'))) out.push(v(`src/${l}/${e.name}/`, 1, 'index.ts 없음', 'SLICE_PUBLIC_API', 'error', 'slice public API(index.ts) 의무'));
-				if (!existsSync(join(sliceDir, 'CLAUDE.md'))) out.push(v(`src/${l}/${e.name}/`, 1, 'CLAUDE.md 없음', 'MISSING_CLAUDE_MD', 'error', 'slice 루트 자기서술 의무 (kit이 씨앗 생성)'));
+				if (!existsSync(join(sliceDir, 'index.ts'))) out.push(v(`${LIB_ROOT}/${l}/${e.name}/`, 1, 'index.ts 없음', 'SLICE_PUBLIC_API', 'error', 'slice public API(index.ts) 의무'));
+				if (!existsSync(join(sliceDir, 'AGENTS.md'))) out.push(v(`${LIB_ROOT}/${l}/${e.name}/`, 1, 'AGENTS.md 없음', 'MISSING_AGENTS_MD', 'error', 'slice 루트 자기서술 의무 (kit이 씨앗 생성)'));
 				for (const s of await readdir(sliceDir, { withFileTypes: true }).catch(() => []))
 					if (s.isDirectory() && !SEGMENTS.includes(s.name))
-						out.push(v(`src/${l}/${e.name}/${s.name}/`, 1, s.name, 'SEGMENT_UNKNOWN', 'error', 'segment는 ui·api·model·lib·config만'));
+						out.push(v(`${LIB_ROOT}/${l}/${e.name}/${s.name}/`, 1, s.name, 'SEGMENT_UNKNOWN', 'error', 'segment는 ui·api·model·lib·config만'));
 				const sliceFiles = files.filter((x) => x.loc.layer === l && x.loc.slice === e.name);
 				// inbound 집계에서 글루(라우트 +page/+layout 등)를 제외한다 — 페이지가 자기 전속 위젯을 마운트하는 것은
 				// steiger 원판도 "소비"로 세지 않는 취지(pages 소비 제외)라, 포함하면 페이지 전속 위젯이 전부 오탐된다.
 				const inbound = new Set(edges.filter((ed) => ed.to && sliceFiles.some((sf) => sf.rel === ed.to.rel) && !(ed.from.loc.layer === l && ed.from.loc.slice === e.name) && !GLUE_KINDS.has(ed.from.kind)).map((ed) => ed.from.rel));
-				if (inbound.size === 1) out.push(v(`src/${l}/${e.name}/`, 1, `소비 1곳(${[...inbound][0]})`, 'INSIGNIFICANT_SLICE', 'warn', '한 곳만 쓰는 slice — 콜로케이션 회귀 검토 (steiger insignificant-slice, 글루/페이지 소비는 세지 않음)'));
+				if (inbound.size === 1) out.push(v(`${LIB_ROOT}/${l}/${e.name}/`, 1, `소비 1곳(${[...inbound][0]})`, 'INSIGNIFICANT_SLICE', 'warn', '한 곳만 쓰는 slice — 콜로케이션 회귀 검토 (steiger insignificant-slice, 글루/페이지 소비는 세지 않음)'));
 			}
 		}
 		for (const l of [...LAYERS.filter((x) => x !== 'pages' || config.layers.pages), 'server']) {
-			const dir = join(ROOT, 'src', l === 'app' ? 'app' : l);
-			if (existsSync(dir) && !existsSync(join(dir, 'CLAUDE.md')))
-				out.push(v(`src/${l}/`, 1, 'CLAUDE.md 없음', 'MISSING_CLAUDE_MD', 'error', '계층 루트 자기서술 의무'));
+			const dir = l === 'app' ? join(ROOT, 'src') : join(ROOT, LIB_ROOT, l);
+			if (existsSync(dir) && !existsSync(join(dir, 'AGENTS.md')))
+				out.push(v(l === 'app' ? 'src/' : `${LIB_ROOT}/${l}/`, 1, 'AGENTS.md 없음', 'MISSING_AGENTS_MD', 'error', '계층 루트 자기서술 의무'));
 		}
 		// shared segment 검사
-		if (existsSync(join(ROOT, 'src/shared')))
-			for (const s of await readdir(join(ROOT, 'src/shared'), { withFileTypes: true }).catch(() => []))
+		if (existsSync(join(ROOT, LIB_ROOT, 'shared')))
+			for (const s of await readdir(join(ROOT, LIB_ROOT, 'shared'), { withFileTypes: true }).catch(() => []))
 				if (s.isDirectory() && !SHARED_SEGMENTS.includes(s.name))
-					out.push(v(`src/shared/${s.name}/`, 1, s.name, 'SEGMENT_UNKNOWN', 'error', 'shared segment는 ui·vendor·lib·model·config만'));
+					out.push(v(`${LIB_ROOT}/shared/${s.name}/`, 1, s.name, 'SEGMENT_UNKNOWN', 'error', 'shared segment는 ui·vendor·lib·model·config만'));
 		// server slice 검사 + parity
-		if (existsSync(join(ROOT, 'src/server'))) {
+		if (existsSync(join(ROOT, LIB_ROOT, 'server'))) {
 			const clientSlices = new Set(SLICED.flatMap((l) => [...slicesOf(files, l).keys()]));
-			for (const e of await readdir(join(ROOT, 'src/server'), { withFileTypes: true }).catch(() => [])) {
+			for (const e of await readdir(join(ROOT, LIB_ROOT, 'server'), { withFileTypes: true }).catch(() => [])) {
 				if (!e.isDirectory()) continue;
-				if (!existsSync(join(ROOT, 'src/server', e.name, 'CLAUDE.md')))
-					out.push(v(`src/server/${e.name}/`, 1, 'CLAUDE.md 없음', 'MISSING_CLAUDE_MD', 'error', 'server slice 자기서술 의무'));
+				if (!existsSync(join(ROOT, LIB_ROOT, 'server', e.name, 'AGENTS.md')))
+					out.push(v(`${LIB_ROOT}/server/${e.name}/`, 1, 'AGENTS.md 없음', 'MISSING_AGENTS_MD', 'error', 'server slice 자기서술 의무'));
 				if (!['shared', 'database', 'auth', ...config.serverInfraSlices].includes(e.name) && ![...clientSlices].some((s) => s === e.name || s.includes(e.name) || e.name.includes(s)))
-					out.push(v(`src/server/${e.name}/`, 1, e.name, 'SLICE_NAME_PARITY', 'warn', '대응 클라 slice명 부재 — 이름 1:1 권장 (서버 전용 엔진은 serverInfraSlices 선언)'));
+					out.push(v(`${LIB_ROOT}/server/${e.name}/`, 1, e.name, 'SLICE_NAME_PARITY', 'warn', '대응 클라 slice명 부재 — 이름 1:1 권장 (서버 전용 엔진은 serverInfraSlices 선언)'));
 			}
 		}
 	}
@@ -942,11 +1014,11 @@ async function collectVerifyChecks() {
 	const checks = [];
 	const readIfExists = async (p) => (existsSync(p) ? await readFile(p, 'utf-8') : null);
 
-	const claudeMd = await readIfExists(join(ROOT, 'CLAUDE.md'));
-	const claudeM = claudeMd?.match(/svelte-arch:begin\s*\(kit v([\d.]+)/);
-	checks.push(claudeM
-		? { name: 'CLAUDE.md 마커 블록', ok: claudeM[1] === KIT_VERSION, detail: `v${claudeM[1]}` }
-		: { name: 'CLAUDE.md 마커 블록', ok: false, detail: '마커 블록 없음' });
+	const agentsMd = await readIfExists(join(ROOT, 'AGENTS.md'));
+	const agentsM = agentsMd?.match(/svelte-arch:begin\s*\(kit v([\d.]+)/);
+	checks.push(agentsM
+		? { name: 'AGENTS.md 마커 블록', ok: agentsM[1] === KIT_VERSION, detail: `v${agentsM[1]}` }
+		: { name: 'AGENTS.md 마커 블록', ok: false, detail: '마커 블록 없음' });
 
 	let hooksPath = '.githooks';
 	try { hooksPath = execSync('git config core.hooksPath', { cwd: ROOT }).toString().trim() || hooksPath; } catch { /* 미설정 — 기본값 사용 */ }
@@ -1040,9 +1112,9 @@ const isPascal = (s) => /^[A-Z][A-Za-z0-9]*$/.test(s);
 const isKebab = (s) => /^[a-z][a-z0-9-]*$/.test(s);
 
 // 계층 루트 역할 1행 (sync.mjs LAYER_ROLES와 동일 문안) — new·plan이 계층을 새로 만들 때도 시드해
-// "생성 직후 자체 감사(MISSING_CLAUDE_MD) 실패"가 없게 한다.
+// "생성 직후 자체 감사(MISSING_AGENTS_MD) 실패"가 없게 한다.
 const LAYER_ROLES = {
-	app: '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
+	app: '초기화 계층 — src/app.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
 	widgets: '자립 대형 블록 slice들 (view/container 페어 = 독립 데이터 섬)',
 	features: '사용자 상호작용(동사) slice들 — 폼·다이얼로그·액션',
 	entities: '업무 개체(명사) slice들 — 표시 view·wire 타입(model)·remote(api). ui는 view 전용',
@@ -1051,17 +1123,17 @@ const LAYER_ROLES = {
 };
 
 async function seedClaude(dir, role) {
-	if (existsSync(join(dir, 'CLAUDE.md'))) return false;
+	if (existsSync(join(dir, 'AGENTS.md'))) return false;
 	try {
-		const t = await loadTemplate('CLAUDE.template.md');
-		await writeFile(join(dir, 'CLAUDE.md'), t.replaceAll('{DIR}', norm(relative(ROOT, dir))).replaceAll('{역할 한 줄}', role), 'utf-8');
+		const t = await loadTemplate('AGENTS.template.md');
+		await writeFile(join(dir, 'AGENTS.md'), t.replaceAll('{DIR}', norm(relative(ROOT, dir))).replaceAll('{역할 한 줄}', role), 'utf-8');
 		return true;
 	} catch { return false; /* audit이 알림 */ }
 }
 
-/** 계층 루트 CLAUDE.md 보장 — layer = 'widgets'·'server' 등 src/ 하위 1단 이름 */
+/** 계층 루트 AGENTS.md 보장 — layer = 'widgets'·'server' 등 src/ 하위 1단 이름 */
 async function seedLayerClaude(layer) {
-	return seedClaude(join(ROOT, 'src', layer), LAYER_ROLES[layer] ?? `${layer} 계층`);
+	return seedClaude(layer === 'app' ? join(ROOT, 'src') : join(ROOT, LIB_ROOT, layer), LAYER_ROLES[layer] ?? `${layer} 계층`);
 }
 
 async function runNew(positionals) {
@@ -1077,19 +1149,19 @@ async function runNew(positionals) {
 	const sliceScaffold = async (layer, slice, base, withContainer) => {
 		if (!isKebab(slice) || !isPascal(base)) return console.error(`사용법: new ${cmd} <kebab-slice> <PascalBase>`), 1;
 		await assertUniqueBase(base);
-		const dir = join(ROOT, 'src', layer, slice);
+		const dir = join(ROOT, LIB_ROOT, layer, slice);
 		await mkdir(join(dir, 'ui'), { recursive: true });
 		await seedLayerClaude(layer);
 		await seedClaude(dir, `${slice} ${layer} slice`);
 		const view = await loadTemplate('SliceSection.view.svelte');
-		await write(`src/${layer}/${slice}/ui/${base}.view.svelte`, view.replaceAll('SliceSection', base).replaceAll('example', slice));
+		await write(`${LIB_ROOT}/${layer}/${slice}/ui/${base}.view.svelte`, view.replaceAll('SliceSection', base).replaceAll('example', slice));
 		let index = `export { default as ${base} } from './ui/${base}.view.svelte';\n`;
 		if (withContainer) {
 			const container = await loadTemplate('SliceSection.container.svelte');
-			await write(`src/${layer}/${slice}/ui/${base}.container.svelte`, container.replaceAll('SliceSection', base).replaceAll('example', slice));
+			await write(`${LIB_ROOT}/${layer}/${slice}/ui/${base}.container.svelte`, container.replaceAll('SliceSection', base).replaceAll('example', slice));
 			index += `export { default as ${base}Container } from './ui/${base}.container.svelte';\n`;
 		}
-		if (!existsSync(join(dir, 'index.ts'))) await write(`src/${layer}/${slice}/index.ts`, index);
+		if (!existsSync(join(dir, 'index.ts'))) await write(`${LIB_ROOT}/${layer}/${slice}/index.ts`, index);
 		return 0;
 	};
 
@@ -1098,7 +1170,7 @@ async function runNew(positionals) {
 		if (!name || !isPascal(name)) return console.error('사용법: new shared-ui <PascalName>'), 1;
 		await assertUniqueBase(name);
 		const t = await loadTemplate('Component.view.svelte');
-		await write(`src/shared/ui/${name}.view.svelte`, t.replaceAll('Component', name));
+		await write(`${LIB_ROOT}/shared/ui/${name}.view.svelte`, t.replaceAll('Component', name));
 		await seedLayerClaude('shared');
 	} else if (cmd === 'entity') {
 		const [slice, base] = rest;
@@ -1116,19 +1188,19 @@ async function runNew(positionals) {
 		const t = await loadTemplate('SetPart.view.svelte');
 		for (const part of parts) {
 			await assertUniqueBase(`${pascal}${part}`);
-			await write(`src/shared/ui/${setName}/${pascal}${part}.view.svelte`, t.replaceAll('SetName', pascal).replaceAll('PartName', part));
+			await write(`${LIB_ROOT}/shared/ui/${setName}/${pascal}${part}.view.svelte`, t.replaceAll('SetName', pascal).replaceAll('PartName', part));
 		}
-		await write(`src/shared/ui/${setName}/index.ts`, parts.map((p) => `export { default as ${p} } from './${pascal}${p}.view.svelte';`).join('\n') + '\n');
+		await write(`${LIB_ROOT}/shared/ui/${setName}/index.ts`, parts.map((p) => `export { default as ${p} } from './${pascal}${p}.view.svelte';`).join('\n') + '\n');
 		await seedLayerClaude('shared');
 	} else if (['service', 'repository', 'adapter', 'port'].includes(cmd)) {
 		const [slice, name] = rest;
 		if (!slice || !isKebab(slice)) return console.error(`사용법: new ${cmd} <slice> [Name]`), 1;
 		const t = await loadTemplate(`${cmd}.template.ts`);
 		const file = cmd === 'adapter' ? `${(name ?? slice).toLowerCase()}.adapter.ts` : `${slice}.${cmd}.ts`;
-		await mkdir(join(ROOT, 'src/server', slice), { recursive: true });
+		await mkdir(join(ROOT, LIB_ROOT, 'server', slice), { recursive: true });
 		await seedLayerClaude('server');
-		await seedClaude(join(ROOT, 'src/server', slice), `${slice} 서버 slice`);
-		await write(`src/server/${slice}/${file}`, t.replaceAll('__slice__', slice));
+		await seedClaude(join(ROOT, LIB_ROOT, 'server', slice), `${slice} 서버 slice`);
+		await write(`${LIB_ROOT}/server/${slice}/${file}`, t.replaceAll('__slice__', slice));
 	} else {
 		console.error('사용법: new <shared-ui|entity|feature|widget|set|service|repository|adapter|port> …');
 		return 1;
@@ -1174,20 +1246,16 @@ async function runPlan(args) {
 
 	for (const rel of legacyFiles) {
 		const b = basename(rel);
-		if (b === '.DS_Store' || b === 'CLAUDE.md' || b === 'README.md') continue; // 문서·잡파일은 이동 계획 밖 (수동 정리)
+		if (b === '.DS_Store' || b === 'AGENTS.md' || b === 'README.md') continue; // 문서·잡파일은 이동 계획 밖 (수동 정리)
 		if (rel in overrides) { addMove(rel, overrides[rel]); continue; } // overrides 최우선 — 휴리스틱 밖(미분류) 파일도 대상 지정 가능
-		// routes → app/routes
-		if (rel.startsWith('src/routes/')) { addMove(rel, rel.replace('src/routes/', 'src/app/routes/')); continue; }
-		if (rel === 'src/app.html') { addMove(rel, 'src/app/index.html'); continue; }
-		if (rel === 'src/app.css') { addMove(rel, 'src/app/app.css'); continue; }
-		if (/^src\/hooks(\.server|\.client)?\.(ts|js)$/.test(rel)) { addMove(rel, rel.replace('src/', 'src/app/')); continue; }
+		// SvelteKit 공식 기본 위치(src/routes·src/app.html·src/app.css·src/hooks.*)는 이동하지 않는다.
 		// vendor
-		if (rel.startsWith('src/lib/components/ui/')) { addMove(rel, rel.replace('src/lib/components/ui/', 'src/shared/vendor/')); continue; }
-		if (rel === 'src/lib/utils.ts') { addMove(rel, 'src/shared/vendor/utils.ts', 'vendor cn 유틸'); continue; }
+		if (rel.startsWith('src/lib/components/ui/')) { addMove(rel, rel.replace('src/lib/components/ui/', `${LIB_ROOT}/shared/vendor/`)); continue; }
+		if (rel === 'src/lib/utils.ts') { addMove(rel, `${LIB_ROOT}/shared/vendor/utils.ts`, 'vendor cn 유틸'); continue; }
 		// shared/ui (구 primitive)
 		const pm = rel.match(/^src\/lib\/components\/primitive\/(.+)$/);
 		if (pm) {
-			let to = 'src/shared/ui/' + pm[1];
+			let to = `${LIB_ROOT}/shared/ui/` + pm[1];
 			if (b === 'index.ts' && !pm[1].includes('/')) { deletes.push(rel); continue; } // 통합 배럴 폐기
 			if (b.endsWith('.svelte') && !/\.(view|container|live|stories)\.svelte$/.test(b)) to = to.replace(/\.svelte$/, '.view.svelte');
 			addMove(rel, to);
@@ -1200,38 +1268,38 @@ async function runPlan(args) {
 			const base = baseOf(rel);
 			const suffix = /\.(container|live)\.svelte$/.test(file) ? '.container.svelte' : /\.(view|stories)\.svelte$/.test(file) ? file.slice(file.indexOf('.')) : '.view.svelte';
 			let target;
-			if (base.endsWith('Section')) target = `src/widgets/${kebab(base.replace(/Section$/, ''))}/ui/${base}${suffix}`;
-			else if (/(Form|Dialog|Modal|Popup|Drawer)$/.test(base)) target = `src/features/${kebab(base)}/ui/${base}${suffix}`;
-			else if (domain === 'layout') target = `src/widgets/${kebab(base)}/ui/${base}${suffix}`;
-			else target = `src/entities/${domain}/ui/${base}${suffix}`;
+			if (base.endsWith('Section')) target = `${LIB_ROOT}/widgets/${kebab(base.replace(/Section$/, ''))}/ui/${base}${suffix}`;
+			else if (/(Form|Dialog|Modal|Popup|Drawer)$/.test(base)) target = `${LIB_ROOT}/features/${kebab(base)}/ui/${base}${suffix}`;
+			else if (domain === 'layout') target = `${LIB_ROOT}/widgets/${kebab(base)}/ui/${base}${suffix}`;
+			else target = `${LIB_ROOT}/entities/${domain}/ui/${base}${suffix}`;
 			// 3계층 분류는 네이밍 관례 추측 — sure=false (2차 LLM이 내용 열람으로 확정)
 			addMove(rel, target, base.endsWith('Section') ? 'widget' : /(Form|Dialog|Modal|Popup|Drawer)$/.test(base) ? 'feature' : domain === 'layout' ? 'widget(셸)' : 'entity', false);
 			continue;
 		}
 		// data 계층
 		const rm = rel.match(/^src\/lib\/data\/([^/]+)\.remote\.ts$/);
-		if (rm) { addMove(rel, `src/entities/${rm[1]}/api/${rm[1]}.remote.ts`); continue; }
+		if (rm) { addMove(rel, `${LIB_ROOT}/entities/${rm[1]}/api/${rm[1]}.remote.ts`); continue; }
 		const sm = rel.match(/^src\/lib\/data\/([^/]+)\.(service|repository)\.ts$/);
-		if (sm) { addMove(rel, `src/server/${sm[1]}/${sm[1]}.${sm[2]}.ts`); continue; }
-		if (rel.startsWith('src/lib/server/')) { addMove(rel, rel.replace('src/lib/server/', 'src/server/')); continue; }
+		if (sm) { addMove(rel, `${LIB_ROOT}/server/${sm[1]}/${sm[1]}.${sm[2]}.ts`); continue; }
+		if (rel.startsWith('src/lib/server/')) continue;
 		// types·state·utils
 		const tm = rel.match(/^src\/lib\/types\/([^/]+?)(\.spec)?\.ts$/);
 		if (tm) {
 			const [, name, spec = ''] = tm;
-			const stem = domains.has(name) ? `src/entities/${name}/model/types` : `src/shared/model/${name}.types`;
+			const stem = domains.has(name) ? `${LIB_ROOT}/entities/${name}/model/types` : `${LIB_ROOT}/shared/model/${name}.types`;
 			addMove(rel, `${stem}${spec}.ts`, '', false); // spec은 본체와 별도 대상 — 동일 대상 덮어쓰기 금지. 도메인 매칭=추측
 			continue;
 		}
 		const stm = rel.match(/^src\/lib\/state\/([^/]+)\.svelte(\.spec)?\.ts$/);
 		if (stm) {
 			const name = stm[1];
-			const home = domains.has(name) ? `src/entities/${name}/model/` : 'src/shared/model/';
+			const home = domains.has(name) ? `${LIB_ROOT}/entities/${name}/model/` : `${LIB_ROOT}/shared/model/`;
 			addMove(rel, home + basename(rel), '', false);
 			continue;
 		}
 		const um = rel.match(/^src\/lib\/utils\/(.+)$/);
 		if (um) {
-			let to = 'src/shared/lib/' + um[1];
+			let to = `${LIB_ROOT}/shared/lib/` + um[1];
 			if (to.endsWith('.ts') && !/\.(util|spec|test|svelte)\.ts$/.test(to) && !to.endsWith('.d.ts')) to = to.replace(/\.ts$/, '.util.ts');
 			addMove(rel, to, '', false); // 업무 로직 util일 수 있음 — shared/lib 배치는 추정
 			continue;
@@ -1268,16 +1336,16 @@ async function runPlan(args) {
 		}
 		return out.join('/');
 	};
-	const toAlias = (rel) => '@/' + rel.replace(/^src\//, '');
+	const toAlias = (rel) => '$lib/' + rel.replace(/^src\/lib\//, '');
 	const BARREL_RE = /import\s*(type\s*)?\{([^}]+)\}\s*from\s*(['"])\$lib\/components\/primitive\3\s*;?/g;
 	function rewrite(content, oldRel, newRel) {
 		let out = content;
 		out = out.replace(BARREL_RE, (full, typeKw, clause) =>
 			clause.split(',').map((s) => s.trim()).filter(Boolean)
-				.map((n) => `import ${typeKw ?? ''}${n} from '@/shared/ui/${n}.view.svelte';`).join('\n'));
+				.map((n) => `import ${typeKw ?? ''}${n} from '$lib/shared/ui/${n}.view.svelte';`).join('\n'));
 		// 절대 스펙 ($lib = 구세계 src/lib)
 		for (const [f, t] of map) {
-			const oldSpecs = [f.replace(/^src\/lib\//, '$lib/'), f.replace(/^src\//, '$lib/../'), toAlias(f), f];
+			const oldSpecs = [f.replace(/^src\/lib\//, '$lib/'), f.replace(/^src\//, '@/'), toAlias(f), f];
 			for (const os of oldSpecs) {
 				out = out.replaceAll(`'${os}'`, `'${toAlias(t)}'`).replaceAll(`"${os}"`, `"${toAlias(t)}"`);
 				if (!os.endsWith('.ts')) continue;
@@ -1320,7 +1388,7 @@ async function runPlan(args) {
 	const guesses = applied.filter((m) => !m.sure);
 	console.log(`# arch-plan · kit v${KIT_VERSION} — 이동 ${applied.length}(확실 ${applied.length - guesses.length} · 추정 ${guesses.length}) · 삭제(배럴) ${deletes.length} · 임포트 재작성 ${rewriteCount}파일 · 미분류 ${followups.length} · 해체 후보 ${teardown.length}`);
 	if (guesses.length || followups.length) console.log(`  추정·미분류 = 2차 LLM 검토 대상 — 내용을 열어 계층 판정 후 plan-overrides.json 확정 (스킬 adoption.md §2.5)`);
-	console.log(`\n## 0단계(수동 1분): config 수술 — vite.config 의 sveltekit() 인라인(kit 2.62.0+ 권장, svelte.config.js 폐지)에 files.lib='src' · files.routes='src/app/routes' · files.appTemplate='src/app/index.html' · alias '@'→'src' (예외 4급·정본: 스킬 fsd-guide.md)`);
+	console.log(`\n## 0단계: SvelteKit 공식 기본 좌표를 유지한다 — src/routes · src/lib · src/app.html · src/app.css · src/hooks.*. deprecated kit.files 커스텀 설정을 추가하지 않는다.`);
 	const byGroup = Map.groupBy(applied, (m) => m.to.split('/').slice(1, 3).join('/'));
 	for (const [g, list] of [...byGroup].sort()) {
 		console.log(`\n## ${g} (${list.length})`);
@@ -1343,22 +1411,13 @@ async function runPlan(args) {
 	console.log(`\n분류는 휴리스틱 제안입니다 — [widget|feature|entity] 표기를 검토하고, 수정은 .svelte-arch/plan-overrides.json 에.`);
 
 	if (!apply) {
-		console.log(`적용: bun run arch:plan -- --apply  (config 수술 선행 + 완전히 깨끗한 작업트리 필수, 롤백=git)`);
+		console.log(`적용: bun run arch:plan -- --apply  (완전히 깨끗한 작업트리 필수, 롤백=git)`);
 		return 0;
 	}
 
 	// ── 적용 게이트 ──
 	if (dupes.length) {
 		console.error(`✗ 거부 — 동일 대상 충돌 ${dupes.length}건(위 ✗ 목록). plan-overrides.json 으로 대상을 분리한 뒤 재실행.`);
-		return 1;
-	}
-	// config 수술 게이트 — kit 2.62.0+ 는 vite.config 의 sveltekit() 인라인이 정본, 예외 4급만 svelte.config (fsd-guide.md)
-	const cfgCandidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mts', 'vite.config.mjs', 'svelte.config.js', 'svelte.config.ts']
-		.map((f) => join(ROOT, f)).filter(existsSync);
-	let surgeryDone = false;
-	for (const p of cfgCandidates) if ((await readFile(p, 'utf-8')).includes('src/app/routes')) { surgeryDone = true; break; }
-	if (!surgeryDone) {
-		console.error(`✗ 거부 — config 수술 선행 필요: vite.config 의 sveltekit() 인라인(권장, kit 2.62.0+) 또는 svelte.config 에 files.routes='src/app/routes' (fsd-guide.md).`);
 		return 1;
 	}
 	try {
@@ -1383,8 +1442,9 @@ async function runPlan(args) {
 		for (const e of entries) if (e.isDirectory()) await pruneEmpty(join(dir, e.name));
 		try { if ((await readdir(dir)).length === 0) await rmdir(dir); } catch { /* keep */ }
 	}
-	await pruneEmpty(join(ROOT, 'src/lib'));
-	await pruneEmpty(join(ROOT, 'src/routes'));
+	for (const legacyDir of ['components', 'data', 'types', 'state', 'utils']) {
+		await pruneEmpty(join(ROOT, LIB_ROOT, legacyDir));
+	}
 	let rewritten = 0;
 	const deleteSet = new Set(deletes);
 	for (const f of files) {
@@ -1393,16 +1453,16 @@ async function runPlan(args) {
 		const next = rewrite(f.content, f.rel, newSelf);
 		if (next !== f.content) { await writeFile(join(ROOT, newSelf), next, 'utf-8'); rewritten++; }
 	}
-	// slice index·CLAUDE 씨앗 (계층 루트 포함 — 이행 직후 audit이 MISSING_CLAUDE_MD로 실패하지 않게)
-	let seeded = 0, claudeSeeded = 0;
+	// slice index·AGENTS 씨앗 (계층 루트 포함 — 이행 직후 audit이 MISSING_AGENTS_MD로 실패하지 않게)
+	let seeded = 0, agentsSeeded = 0;
 	for (const l of ['entities', 'features', 'widgets']) {
-		const dir = join(ROOT, 'src', l);
+		const dir = join(ROOT, LIB_ROOT, l);
 		if (!existsSync(dir)) continue;
-		if (await seedLayerClaude(l)) claudeSeeded++;
+		if (await seedLayerClaude(l)) agentsSeeded++;
 		for (const e of await readdir(dir, { withFileTypes: true })) {
 			if (!e.isDirectory()) continue;
 			const sliceDir = join(dir, e.name);
-			if (await seedClaude(sliceDir, `${e.name} ${l} slice — {역할 한 줄 다듬기}`)) claudeSeeded++;
+			if (await seedClaude(sliceDir, `${e.name} ${l} slice — {역할 한 줄 다듬기}`)) agentsSeeded++;
 			if (!existsSync(join(sliceDir, 'index.ts'))) {
 				const lines = [];
 				for await (const p of walk(sliceDir)) {
@@ -1417,13 +1477,14 @@ async function runPlan(args) {
 		}
 	}
 	for (const l of ['app', 'shared', 'server']) {
-		if (!existsSync(join(ROOT, 'src', l))) continue;
-		if (await seedLayerClaude(l)) claudeSeeded++;
+		const dir = l === 'app' ? join(ROOT, 'src') : join(ROOT, LIB_ROOT, l);
+		if (!existsSync(dir)) continue;
+		if (await seedLayerClaude(l)) agentsSeeded++;
 	}
-	if (existsSync(join(ROOT, 'src/server')))
-		for (const e of await readdir(join(ROOT, 'src/server'), { withFileTypes: true }))
-			if (e.isDirectory() && (await seedClaude(join(ROOT, 'src/server', e.name), `${e.name} 서버 slice — {역할 한 줄 다듬기}`))) claudeSeeded++;
-	console.log(`\n✓ 적용 완료 — 이동 ${applied.length} · 삭제 ${deletes.length} · 재작성 ${rewritten}파일 · index 씨앗 ${seeded} · CLAUDE.md 씨앗 ${claudeSeeded}`);
+	if (existsSync(join(ROOT, LIB_ROOT, 'server')))
+		for (const e of await readdir(join(ROOT, LIB_ROOT, 'server'), { withFileTypes: true }))
+			if (e.isDirectory() && (await seedClaude(join(ROOT, LIB_ROOT, 'server', e.name), `${e.name} 서버 slice — {역할 한 줄 다듬기}`))) agentsSeeded++;
+	console.log(`\n✓ 적용 완료 — 이동 ${applied.length} · 삭제 ${deletes.length} · 재작성 ${rewritten}파일 · index 씨앗 ${seeded} · AGENTS.md 씨앗 ${agentsSeeded}`);
 	console.log(`다음: svelte-check → bun run arch:audit → dev 부팅 스모크 → git diff 리뷰 → 커밋`);
 	return 0;
 }

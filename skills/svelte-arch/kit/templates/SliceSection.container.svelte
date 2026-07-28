@@ -1,7 +1,7 @@
 <!-- SliceSection 데이터 배선 — 마크업 0, 로직이 자라면 ../model/*.svelte.ts 로 추출 -->
 <script lang="ts">
 	import { getItems, removeItem } from '../api/example.remote';
-	import EmptyState from '@/shared/ui/EmptyState.view.svelte';
+	import EmptyState from '$lib/shared/ui/EmptyState.view.svelte';
 	import SliceSection from './SliceSection.view.svelte';
 
 	const items = getItems(); // remote 는 최상위에서 — $effect 안 호출 금지(무한루프)

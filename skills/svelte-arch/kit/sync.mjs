@@ -4,15 +4,15 @@
  *
  * 실행: 프로젝트 루트에서  bun <스킬경로>/kit/sync.mjs  [--force]
  * - 최초 실행 = 스캐폴드 / 재실행 = kit-owned 동기화 + 대기 마이그레이션 자동 적용
- * - 설치물 = .svelte-arch/ + package.json arch:* 5줄 + CLAUDE.md 마커 블록 + 훅 파일 안 마커 블록
- *   + 계층·slice CLAUDE.md 씨앗(없는 곳만) + core.hooksPath 미설정 시 .githooks 지정
+ * - 설치물 = .svelte-arch/ + package.json arch:* 5줄 + AGENTS.md 마커 블록 + 훅 파일 안 마커 블록
+ *   + 계층·slice AGENTS.md 씨앗(없는 곳만) + core.hooksPath 미설정 시 .githooks 지정
  * - kit 은 core.hooksPath 를 소유하지 않는다: 기존 hooksPath(없으면 .githooks 생성)를 존중하고
  *   그 pre-commit 안의 마커 구간만 관리한다 — 블록 밖·다른 훅은 불가침.
- * - project-owned(config.mjs·plan-overrides·기존 CLAUDE.md·마커 밖)는 불가침. 롤백 = git.
+ * - project-owned(config.mjs·plan-overrides·기존 AGENTS.md·마커 밖)는 불가침. 롤백 = git.
  */
 
 import { readdir, readFile, writeFile, mkdir, copyFile, chmod } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -143,64 +143,66 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 	}
 }
 
-// ── 4. CLAUDE.md 씨앗 — 계층·slice 루트 (없을 때만, FSD 트리에서만) ──────
+// ── 4. AGENTS.md 씨앗 — 계층·slice 루트 (없을 때만, FSD 트리에서만) ──────
 const LAYER_ROLES = {
-	'src/app': '초기화 계층 — index.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
-	'src/widgets': '자립 대형 블록 slice들 (view/container 페어 = 독립 데이터 섬)',
-	'src/features': '사용자 상호작용(동사) slice들 — 폼·다이얼로그·액션',
-	'src/entities': '업무 개체(명사) slice들 — 표시 view·wire 타입(model)·remote(api). ui는 view 전용',
-	'src/shared': '업무 무관 — ui(디자인 시스템, 딥 임포트)·vendor(shadcn 원본 보존)·lib·model·config',
-	'src/server': '서버 스택($lib/server 보호) — slice별 service·repository·adapter, 이름은 클라 slice와 1:1',
-	'src/shared/ui': '디자인 시스템 선반 — 승격 4테스트 통과분만, flat + icons/ + 세트 폴더',
-	'src/shared/vendor': 'shadcn-svelte 산출물 원본 보존(불가침) — shared/ui 만 래핑 소비'
+	'src': '초기화 계층 — app.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
+	'src/lib/widgets': '자립 대형 블록 slice들 (view/container 페어 = 독립 데이터 섬)',
+	'src/lib/features': '사용자 상호작용(동사) slice들 — 폼·다이얼로그·액션',
+	'src/lib/entities': '업무 개체(명사) slice들 — 표시 view·wire 타입(model)·remote(api). ui는 view 전용',
+	'src/lib/shared': '업무 무관 — ui(디자인 시스템, 딥 임포트)·vendor(shadcn 원본 보존)·lib·model·config',
+	'src/lib/server': '서버 스택($lib/server 보호) — slice별 service·repository·adapter, 이름은 클라 slice와 1:1',
+	'src/lib/shared/ui': '디자인 시스템 선반 — 승격 4테스트 통과분만, flat + icons/ + 세트 폴더',
+	'src/lib/shared/vendor': 'shadcn-svelte 산출물 원본 보존(불가침) — shared/ui 만 래핑 소비'
 };
 {
-	const template = await readFile(join(KIT, 'templates/CLAUDE.template.md'), 'utf-8');
+	const template = await readFile(join(KIT, 'templates/AGENTS.template.md'), 'utf-8');
 	let seeded = 0;
 	const seedIfDir = async (rel, role) => {
 		const abs = join(ROOT, rel);
-		if (!existsSync(abs) || existsSync(join(abs, 'CLAUDE.md'))) return;
-		await writeFile(join(abs, 'CLAUDE.md'), template.replaceAll('{DIR}', rel).replaceAll('{역할 한 줄}', role), 'utf-8');
+		if (!existsSync(abs) || existsSync(join(abs, 'AGENTS.md'))) return;
+		await writeFile(join(abs, 'AGENTS.md'), template.replaceAll('{DIR}', rel).replaceAll('{역할 한 줄}', role), 'utf-8');
 		seeded++;
 	};
 	for (const [rel, role] of Object.entries(LAYER_ROLES)) await seedIfDir(rel, role);
 	for (const layer of ['widgets', 'features', 'entities', 'server']) {
-		const dir = join(ROOT, 'src', layer);
+		const dir = join(ROOT, 'src/lib', layer);
 		if (!existsSync(dir)) continue;
 		for (const e of await readdir(dir, { withFileTypes: true })) {
 			if (!e.isDirectory() || e.name === 'vendor') continue;
-			await seedIfDir(norm(join('src', layer, e.name)), `${e.name} ${layer} slice — {역할 한 줄 다듬기}`);
+			await seedIfDir(norm(join('src/lib', layer, e.name)), `${e.name} ${layer} slice — {역할 한 줄 다듬기}`);
 		}
 	}
-	if (seeded) done.push(`CLAUDE.md 씨앗 ${seeded}개 (기존 불가침)`);
+	if (seeded) done.push(`AGENTS.md 씨앗 ${seeded}개 (기존 불가침)`);
 }
 
-// ── 5. 루트 CLAUDE.md 마커 블록 ──────────────────────────────────────────
+// ── 5. 루트 AGENTS.md 마커 블록 ──────────────────────────────────────────
 {
-	const block = (await readFile(join(KIT, 'templates/claude-block.md'), 'utf-8')).replaceAll('{VERSION}', KIT_VERSION).trim();
-	const p = join(ROOT, 'CLAUDE.md');
+	const block = (await readFile(join(KIT, 'templates/agents-block.md'), 'utf-8')).replaceAll('{VERSION}', KIT_VERSION).trim();
+	const p = join(ROOT, 'AGENTS.md');
 	const BEGIN = '<!-- svelte-arch:begin';
 	const END = '<!-- svelte-arch:end -->';
-	let content = existsSync(p) ? await readFile(p, 'utf-8') : '# CLAUDE.md\n';
+	let content = existsSync(p) ? await readFile(p, 'utf-8') : '# AGENTS.md\n';
 	if (content.includes(BEGIN) && content.includes(END)) {
 		content = content.slice(0, content.indexOf(BEGIN)) + block + content.slice(content.indexOf(END) + END.length);
 	} else {
 		content = content.trimEnd() + '\n\n' + block + '\n';
 	}
 	await writeFile(p, content, 'utf-8');
-	done.push('CLAUDE.md 마커 블록 (블록 구간만 kit 관리)');
+	done.push('AGENTS.md 마커 블록 (블록 구간만 kit 관리)');
 }
 
 // ── 구 구조 감지 ─────────────────────────────────────────────────────────
-const legacy = existsSync(join(ROOT, 'src/lib/components')) || existsSync(join(ROOT, 'src/lib/server')) ||
-	(existsSync(join(ROOT, 'src/routes')) && !existsSync(join(ROOT, 'src/app/routes')));
+const legacy = ['src/app/routes', 'src/server', 'src/shared', 'src/entities', 'src/features', 'src/widgets', 'src/pages']
+	.some((path) => existsSync(join(ROOT, path)) && readdirSync(join(ROOT, path)).length > 0)
+	|| (existsSync(join(ROOT, 'src/lib/components'))
+		&& !['shared', 'entities', 'features', 'widgets', 'pages'].some((layer) => existsSync(join(ROOT, 'src/lib', layer))));
 
 // ── 요약 ─────────────────────────────────────────────────────────────────
 log(`\n✓ arch kit v${KIT_VERSION} 설치/업데이트 완료 → ${norm(ROOT)}`);
 for (const d of done) log(`  · ${d}`);
 if (legacy) {
 	log(`\n⚠ 구(비-FSD) 구조 감지 — FSD 좌표계 이행이 필요합니다.`);
-	log(`  ① config 수술 — vite.config sveltekit() 인라인 (스킬 references/fsd-guide.md 스니펫 — 수동 1분)`);
+	log(`  ① SvelteKit 공식 기본 좌표(src/routes·src/lib·src/app.html·src/hooks.*) 유지 확인`);
 	log(`  ② bun run arch:plan          # 이동·리네임·3계층 분류 제안표`);
 	log(`  ③ 제안표 검토·승인 + .svelte-arch/plan-overrides.json 조정 후에만: bun run arch:plan -- --apply`);
 	log(`  (에이전트 규범: "FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?" 승인 필수)`);

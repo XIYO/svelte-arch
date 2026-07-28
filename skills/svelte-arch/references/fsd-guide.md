@@ -31,43 +31,30 @@ FSD v2.0은 entities/features를 먼저 식별하는 bottom-up이었고, 그 경
 
 판정 불확실 → **높은 계층에 둔다**(widgets 디폴트 — FSD 공식 FAQ). 미리 나누지 않는다.
 
-## SvelteKit 수술 정본 (FSD 공식 가이드 방식 — vite.config 흡수판)
+## SvelteKit 좌표 정본 — 공식 기본값 유지
 
-`@sveltejs/kit` **2.62.0+** 는 설정을 `sveltekit()` 플러그인 인자로 직접 받는다 — 전달하면 `svelte.config.js` 는 **무시**된다(공식 Configuration 문서). 수술 정본은 **vite.config 인라인**: 설정 파일 1개가 사라지고 빌드 도구 설정이 vite.config 단일 출처가 된다. `kit` 네임스페이스가 최상위로 평탄화되는 것이 구 레이아웃과의 유일한 차이이며, adapter·compilerOptions 등 나머지 svelte.config 항목도 같은 객체로 함께 흡수한다.
+SvelteKit의 `kit.files.lib`·`kit.files.routes`·`kit.files.appTemplate`·`kit.files.hooks`는 deprecated다. svelte-arch는 다음 공식 기본값을 바꾸지 않는다.
 
-```ts
-// vite.config.ts — sveltekit() 인라인 (svelte.config.js 폐지)
-import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-	plugins: [
-		sveltekit({
-			files: {
-				lib: 'src',                      // $lib = src → src/server가 $lib/server(서버 전용 보호)
-				routes: 'src/app/routes',        // 라우팅 = app 계층 소속 (FSD 정통)
-				appTemplate: 'src/app/index.html',
-				hooks: { server: 'src/app/hooks.server', client: 'src/app/hooks.client' }
-			},
-			alias: { '@': 'src', '@/*': 'src/*' } // 임포트 표준 표기 — $lib은 내부 존재만
-		})
-	]
-});
+```text
+src/routes/       # 파일 라우팅 + pages first 콜로케이션
+src/lib/          # $lib
+src/app.html
+src/app.css
+src/hooks.server.ts
+src/hooks.client.ts
 ```
 
-**svelte.config.js 유지가 정답인 예외 4급** — 이때만 위 객체를 `kit:` 아래 두는 구판 레이아웃 그대로 쓴다: ① kit < 2.62.0(인라인 미지원) ② `preprocess`/`extensions` 사용(mdsvex·scss 등 — 에디터 언어서버(svelte-language-tools)는 vite.config 를 읽지 않고 svelte.config 만 직접 로드하므로, 컴파일러 기본값으로 부족한 변환이 있으면 파일이 남아야 에디터가 성립한다. Svelte 5 + Tailwind v4 표준 스택은 preprocess 0 이라 해당 없음) ③ `onwarn` 커스텀 필요(인라인 타입이 `Omit<Options, 'onwarn'>` 로 명시 배제) ④ 라이브러리 프로젝트(`svelte-package` 가 svelte.config 를 직접 읽음).
+FSD 계층은 `src/lib/{widgets,features,entities,shared}` 아래에 놓고 서버 전용 스택은 `src/lib/server`에 둔다. 내부 절대 임포트는 SvelteKit 기본 `$lib/*`를 사용한다. 별도 `@/*` 별칭이나 좌표 변경을 위한 설정 수술은 만들지 않는다.
 
-**흡수 시 함께 갈아야 하는 svelte.config 직접 소비자**: `eslint.config.js` 의 `import svelteConfig from './svelte.config.js'` → 파서가 실제로 쓰는 최소만 인라인(`const svelteConfig = { compilerOptions: {…} }` — alias 해석은 생성 tsconfig(projectService) 몫이라 불필요). 에디터 Svelte 확장은 svelte.config 부재 시 기본값 폴백(예외 ② 가 아닌 프로젝트는 실사용 영향 0). `svelte-check --tsconfig` 는 생성 tsconfig 기반이라 무관.
-
-수술의 소프트 비용 4건(전부 완화됨): ① 생태계 사전지식(`src/routes` 가정) — 루트 CLAUDE.md 마커+audit이 교정 ② 스캐폴딩 도구 별칭 1회 설정(shadcn components.json 등) ③ 이행 규모(arch:plan이 기계 수행) ④ `$lib` 의미 변화(@ 별칭으로 표준화).
+`svelte.config.js`와 `vite.config.*`의 존폐는 프로젝트가 실제로 쓰는 preprocess·compilerOptions·adapter·테스트 설정에 따라 결정한다. svelte-arch는 좌표계를 위해 이 파일들을 재배치하거나 제거하지 않는다.
 
 ## FSD와 의도적으로 다른 점 (사투리 목록 — 각각 근거)
 
-1. **pages 계층 기본 닫힘 (생략 아님)** — `src/pages/`는 **존재하되 닫힘**이고, SvelteKit routes 콜로케이션이 pages-first 역할을 겸한다(재수출 간접층은 순수 보일러플레이트). 공식 FSD SvelteKit 가이드는 pages를 **열어** 쓰지만(page slice를 pages에 두고 `+page.svelte`가 import), 프레임워크 파일 라우팅이 이미 그 역할을 하므로 **닫음이 정당한 방언**이다. `config.layers.pages=true`로 개방 가능.
+1. **pages 계층 기본 닫힘 (생략 아님)** — `src/lib/pages/`는 **존재하되 닫힘**이고, SvelteKit routes 콜로케이션이 pages-first 역할을 겸한다(재수출 간접층은 순수 보일러플레이트). 공식 FSD SvelteKit 가이드는 pages를 **열어** 쓰지만(page slice를 pages에 두고 `+page.svelte`가 import), 프레임워크 파일 라우팅이 이미 그 역할을 하므로 **닫음이 정당한 방언**이다. `config.layers.pages=true`로 개방 가능.
 2. **shared/ui·lib 통합 배럴 금지 = FSD 공식 처방 그대로**, 단 우리는 개별 index 대신 **딥 임포트**로 통일(분석기·매니페스트 정확성).
 3. **`@x` 표기 미도입** — cross-slice 타입은 slice index의 type 재수출로 충분(빌드 소멸).
 4. **steiger 미도입** — 룰만 arch:audit이 흡수(NO_LAYER_PUBLIC_API·INSIGNIFICANT_SLICE·cross-slice·public API). 근거: 린터 이원화 방지 + steiger가 못 보는 룰(view/container·클래스·앵커·서버)이 절반.
-5. **server/ 병렬 스택** — FSD는 명시적 프론트엔드 방법론이라 서버를 **명시적으로 배제**한다(공식: "should not be used to model a backend application"). 서버 계층(remote(controller)→service→repository·adapter, driven **port 인터페이스**·guard·schema)은 svelte-arch 고유 규범이며, 근거는 FSD가 아니라 **헥사고날 ports&adapters·Clean Architecture**(inside/outside 비대칭·의존 내향)에 명시적으로 댄다. slice 이름 1:1로 이음.
+5. **`src/lib/server/` 병렬 스택** — FSD는 명시적 프론트엔드 방법론이라 서버를 **명시적으로 배제**한다(공식: "should not be used to model a backend application"). 서버 계층(remote(controller)→service→repository·adapter, driven **port 인터페이스**·guard·schema)은 svelte-arch 고유 규범이며, 근거는 FSD가 아니라 **헥사고날 ports&adapters·Clean Architecture**(inside/outside 비대칭·의존 내향)에 명시적으로 댄다. slice 이름 1:1로 이음.
 6. **접미사 오버레이(.view/.container)** — FSD가 비워둔 dumb/smart 축. ⚠ container/presentational(smart/dumb)은 **원저자 Abramov가 2019 철회**했고("더는 이렇게 나누길 권하지 않는다 … dogma로 삼지 말라"), patterns.dev도 "Hooks가 대체"로 본다 — 즉 **"업계 표준이라서"는 채택 근거가 될 수 없다**. 우리 근거는 **오직 기계적 경계**다: remote·`<svelte:boundary>` 결합 컴포넌트는 mock props만으로 렌더 불가(→ `.view`와 다른 테스트 티어)이고 pending 스켈레톤을 페어 view 재사용으로 얻는다. 이건 Abramov가 철회한 "임의 분리"와 **범주가 다르다**(미학적 취향이 아니라 SvelteKit 결합이 강제하는 물리적 경계). v5 `.live`→`.container` 개명은 관용어 정렬 *편의*일 뿐 근거가 아니다 — 관용어 자체가 deprecated인 만큼 이름은 다음 major에서 재론 여지. (검증 註: "FSD가 공식 폐기 선언"이라는 별도 주장은 적대검증 미통과 — 근거로 쓰지 않는다.)
 
 ## 용어 사전 (업계 대응 — 온보딩용)

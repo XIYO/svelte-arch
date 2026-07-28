@@ -1,7 +1,7 @@
-# 헌법 — SvelteKit × FSD 2.1 아키텍처 v5
+# 헌법 — SvelteKit × FSD 2.1 아키텍처 v6
 
 > 규범 전문. 요약은 SKILL.md, FSD 원전 번역·용어 사전은 fsd-guide.md, 감사 구현은 audit-rules.md.
-> 모든 조항은 도구·프로젝트 무관(도메인 0%). 프로젝트 특화는 각 레포의 `.svelte-arch/config.mjs`와 CLAUDE.md가 갖는다.
+> 모든 조항은 도구·프로젝트 무관(도메인 0%). 프로젝트 특화는 각 레포의 `.svelte-arch/config.mjs`와 AGENTS.md가 갖는다.
 
 ## 0. 메타규칙 · 용어
 
@@ -25,9 +25,9 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 ### A1. 의존 단방향 — 계층은 아래로만, 서버는 건너뛰기 0
 
 ```text
-클라(수직): app(routes 글루) → [pages(닫힘)] → widgets → features → entities → shared
+클라(수직): app(src/routes 글루) → [pages(닫힘)] → widgets → features → entities → shared
 클라(수평): 같은 계층 slice 간 import 금지 (type-only는 slice index 경유만 허용 — @x 미도입)
-경계:      *.container → 자기 slice api(remote) · 하위 계층 api/ui — 서버 값 import는 remote·글루서버·endpoint·hooks만
+경계:      *.container → 자기 slice api(remote) · 하위 계층 api/ui — $lib/server 값 import는 remote·글루서버·endpoint·hooks만
 서버(수직): *.remote → *.guard·*.service → *.repository → *.schema  /  *.adapter ← service·repository
 서버(수평): server/<a> → server/<b> 금지 (server/shared만 예외 — 둘째 서버 slice가 호출하는 순간 shared로 이동)
 ```
@@ -45,7 +45,7 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 1. 정본 계보: DB 행(스키마 infer) → service DTO → **wire 타입(`model/types.ts`)** → view Props는 참조만. **변환(Domain↔DTO↔Persistence = Mapper 책임)은 repository/service가 소유** — view·container로 새지 않고, wire 타입이 클라 대면 DTO 계약이다.
 2. 다개체 공용(pagination 등)은 `shared/model/`. remote **로컬 전용** 응답 타입은 remote 안 `export interface`도 합법(SvelteKit 실측: 타입 export는 컴파일 소멸로 안전 — **값 export만 즉사**, `REMOTE_VALUE_EXPORT`).
 3. 구조 재타이핑 금지 — 좁힐 땐 `Pick`/`Omit`/`Partial` 파생만. wire 타입에 DB 행(`$inferSelect`) 재수출 금지.
-4. 타 slice 타입은 slice index의 type 재수출로 소비(`import type { X } from '@/entities/user'` — type-only는 빌드 소멸).
+4. 타 slice 타입은 slice index의 type 재수출로 소비(`import type { X } from '$lib/entities/user'` — type-only는 빌드 소멸).
 5. shared/ui는 업무 타입 import 금지 — 자기 무업무 타입이 정본. `ComponentProps<typeof X>`로 재선언 방지.
 
 ### A4. 발견성 = 실행형 매니페스트
@@ -55,7 +55,7 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 ### A5. 배럴 정책 — slice 계약 배럴만, 발견성 금지
 
 - **의무**: sliced 계층(widgets·features·entities)의 slice 루트 `index.ts` = public API. **재수출 전용·로직 0·자기 slice 파일만**(`SLICE_PUBLIC_API`). 타 slice 소비는 이 index 경유만(`DEEP_IMPORT_INTO_SLICE`).
-- **금지**: 계층 루트 배럴(`NO_LAYER_PUBLIC_API` — steiger 동명 룰) · `shared/ui`·`shared/lib` 통합 배럴(`NO_SHARED_MEGA_BARREL` — FSD 공식 처방이자 Vite 성능 가이드. shared는 **딥 임포트**: `@/shared/ui/Button.view.svelte`).
+- **금지**: 계층 루트 배럴(`NO_LAYER_PUBLIC_API` — steiger 동명 룰) · `shared/ui`·`shared/lib` 통합 배럴(`NO_SHARED_MEGA_BARREL` — FSD 공식 처방이자 Vite 성능 가이드. shared는 **딥 임포트**: `$lib/shared/ui/Button.view.svelte`).
 - **근거**: 무관물 대형 배럴은 dev 그래프 폭발(HMR 연쇄)·무거운 의존 연쇄를 만든다. slice 배럴은 "밀접한 관련물 소수"라 안전(FSD 공식 문구). 세트 배럴(`shared/ui/<set>/index.ts`)은 compound 위젯 부품 재수출만.
 - **배럴 4원칙 (화이트리스트 규율)**:
   1. 배럴 = **외부 실소비 진입점 + 계약 타입만** 공개하는 화이트리스트다. 폴더 인벤토리 전량 덤프(있는 파일 다 재수출)는 금지 — 발견성은 배럴이 아니라 매니페스트(A4)가 담당한다.
@@ -73,10 +73,12 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 - `Section` 예약어: "글루가 마운트하는 화면 루트" 위젯만. 콜백 = camelCase `onXxx`. 상태 prop 표준명 `loading`/`error`/`disabled`(is/has 접두 금지). `$bindable`은 value·open·ref만.
 - 같은 역할 다른 이름(Modal vs Dialog) 금지 — 신설 전 매니페스트 검색.
 
-### A8. 자기서술 = CLAUDE.md (계층 루트 + slice 루트)
+### A8. 자기서술 = AGENTS.md (root + 계층 + slice)
 
-- **계층 루트와 slice 루트는 `CLAUDE.md` 의무**(`MISSING_CLAUDE_MD`). segment 폴더는 면제 — 디렉토리 CLAUDE.md는 해당 폴더 파일 작업 시 하네스가 **자동 로드**하므로(README 게이트 같은 규범 의존이 기계 보장으로 대체된 것) 밀도가 곧 컨텍스트 비용이다. **짧게**: 역할 1행 + 두는 것/두지 않는 것. 규칙 본문 미러링 금지(link, don't mirror).
-- kit 설치·생성기가 씨앗을 자동 생성. 1행은 매니페스트의 slice 설명으로 추출된다.
+- **루트 `AGENTS.md`**는 매 세션 자동 로드되는 운영 카드다. 전 작업 공통 불변식·사람 판단 대기·범위별 정본 포인터만 둔다. 코드/라우트/테이블 인벤토리, 장문의 실사고 서사, 하위 매뉴얼 규칙 복붙은 코드·requirements/design·범위 매뉴얼로 내린다(link, don't mirror).
+- **계층 루트와 slice 루트는 `AGENTS.md` 의무**(`MISSING_AGENTS_MD`), segment 폴더는 면제다. 해당 폴더 작업 시 자동 로드되므로 역할 1행 + “여기 두는 것/두지 않는 것”만 둔다. 상세 규칙은 root 카드·헌법·코드 정본에 링크한다.
+- audit은 root 32KiB, 범위 매뉴얼 16KiB 초과를 `AGENTS_CONTEXT_BUDGET` warning으로 알린다. 예산은 삭제 명령이 아니라 중복을 검토하라는 신호이며, 불가피한 초과는 사람이 근거를 확인한다.
+- kit 설치·생성기가 씨앗을 자동 생성한다. 1행은 매니페스트의 slice 설명으로 추출된다.
 
 ### A9. 클래스 합성 — `class={[...]}` 배열 단일 규약
 
@@ -102,32 +104,38 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 - **제외**(감지 대상 아님): `http(s)://`·`mailto:`·`tel:`·`//`(프로토콜 상대)로 시작하는 경로, 파일 확장자가 붙은 정적 자원 경로, `#`만 있는 해시.
 - **근거**: base path 변경에도 링크가 깨지지 않고, 존재하지 않는 라우트로의 오타를 컴파일 타임 타입 체크가 잡는다.
 
-## 2. 트리 정본 (config 수술 포함)
+### A12. 인증 불변식 — 경계가 보장하고 보호 컴포넌트는 전제한다
 
-```js
-// vite.config — FSD 공식 SvelteKit 수술 (kit 2.62.0+: sveltekit() 플러그인 인라인 — svelte.config.js 폐지)
-sveltekit({ files: { lib: 'src', routes: 'src/app/routes', appTemplate: 'src/app/index.html' }, alias: { '@': 'src', '@/*': 'src/*' } })
-// 예외(kit<2.62.0 · preprocess/extensions · onwarn · svelte-package)만 svelte.config 유지 — 정본: fsd-guide.md
-```
+- `hooks.server`는 쿠키를 검증해 `event.locals`에 세션을 적재한다. 보호 route group의 `+layout.server.ts`는 렌더 전에 `locals`를 검사하고, 미인증 요청을 `redirect(307, resolve('/auth'))`로 차단한다. 301/302는 요청 메서드를 바꿀 수 있어 쓰지 않는다.
+- `authentication.protectedRouteDirs` 아래의 `.view.svelte`와 `.container.svelte`는 **이미 인증된 실행 문맥을 전제**한다. `useSession()` 재호출, 로그인 여부 분기, 로그인 CTA·인증 진입 경로 이동을 넣지 않는다(`PROTECTED_COMPONENT_AUTH_BRANCH`). loading·empty·error·not-found는 데이터 표현 상태이므로 그대로 view의 책임이다.
+- Remote Functions·API endpoint·form action은 화면 렌더와 독립적으로 호출 가능한 보안 경계다. UI 또는 route params/URL을 신뢰하지 않고 **매 요청마다** guard를 호출한다. route guard는 요청 경계 guard를 대체하지 않는다.
+- SPA가 열린 뒤 세션이 만료되는 경우는 앱 전역 Query/HTTP 오류 경계 한 곳에서 인증 진입 화면으로 리디렉트한다. leaf component마다 401 분기나 세션 조회를 복제하지 않는다.
+- **캐시 보존과 노출은 별개의 정책**이다. 로그아웃·세션 만료 뒤 IndexedDB/Query 캐시를 보존할 수 있지만, 보호 route의 비로그인 렌더를 암묵적으로 허용하지 않는다. 캐시를 비로그인에게 보여 주려면 공개/혼합 route라는 제품 결정을 별도로 선언해야 한다.
+- 로그인·가입 화면, 공개 route, 명시적으로 선언한 혼합 인증 화면은 이 조항의 보호 컴포넌트 대상이 아니다. 명시적 로그인/로그아웃 mutation 성공 뒤 인증 화면으로 이동해야 하는 container는 `authentication.transitionComponents`에 정확한 파일 경로로 선언할 수 있다. 이 예외도 `useSession()` 재조회는 허용하지 않는다.
+- **근거**: 인증 불변식의 소유자가 한 경계로 수렴해 분기 폭발과 상태 불일치를 막고, 요청 권한 검사와 UI 표현 책임을 분리한다.
+
+## 2. 트리 정본 (SvelteKit 공식 기본 좌표)
+
+`kit.files.lib`·`kit.files.routes`·`kit.files.appTemplate`·`kit.files.hooks`는 deprecated이므로 커스텀하지 않는다. SvelteKit 기본 `src/routes`·`src/lib`·`src/app.html`·`src/hooks.*`를 그대로 쓰며, 내부 임포트는 기본 별칭 `$lib`를 사용한다.
 
 ```text
 src/
-├── app/                       # 초기화 계층
-│   ├── index.html · app.css · hooks.server.ts
-│   └── routes/                # 글루(+page/+layout) + pages first 콜로케이션(.view/.container 마킹)
-├── pages/                     # 닫힘(기본) — config.layers.pages=true 로만 개방
-├── widgets/<slice>/           # {ui/, model/?, lib/?, index.ts, CLAUDE.md}
-├── features/<slice>/          # {ui/, api/?, model/?, index.ts, CLAUDE.md}
-├── entities/<slice>/          # {ui/(view 전용), api/<slice>.remote.ts, model/types.ts, index.ts, CLAUDE.md}
-├── shared/
-│   ├── ui/                    # 디자인 시스템 — flat + icons/ + <set>/ (배럴 금지, 딥 임포트)
-│   ├── vendor/                # shadcn 산출물 원본 보존(불가침) — shared/ui만 래핑 소비
-│   ├── lib/ · model/ · config/
-└── server/                    # = $lib/server (컴파일러 보호)
-    ├── <slice>/               # <slice>.port.ts(계약) · <slice>.service.ts · <slice>.repository.ts · *.adapter.ts
-    ├── auth/                  # *.guard.ts · auth.adapter.ts
-    ├── database/              # *.schema.ts · db.adapter.ts
-    └── shared/                # 횡단 서버 slice (notification 등)
+├── app.html · app.css · hooks.server.ts     # 초기화 계층
+├── routes/                                  # 글루 + pages first 콜로케이션
+└── lib/
+    ├── pages/                               # 닫힘(기본)
+    ├── widgets/<slice>/                     # {ui/, model/?, lib/?, index.ts, AGENTS.md}
+    ├── features/<slice>/                    # {ui/, api/?, model/?, index.ts, AGENTS.md}
+    ├── entities/<slice>/                    # {ui/(view 전용), api/, model/, index.ts}
+    ├── shared/
+    │   ├── ui/                              # 디자인 시스템 — 딥 임포트
+    │   ├── vendor/                          # 외부 UI 킷 원본 보존
+    │   └── lib/ · model/ · config/
+    └── server/                              # = $lib/server (서버 전용 보호)
+        ├── <slice>/                         # port·service·repository·adapter
+        ├── auth/                            # guard·auth adapter
+        ├── database/                        # schema·db adapter
+        └── shared/                          # 횡단 서버 slice
 ```
 
 - **remote가 `entities/api`에 사는 근거**: `$lib/server` 안이면 클라 import가 차단되어 remote가 성립 불가. api segment = 클라에 보이는 유일한 서버 표면, server/ = 서버 전용 — 배치가 곧 보안 경계.

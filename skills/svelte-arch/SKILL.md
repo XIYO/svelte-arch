@@ -1,33 +1,35 @@
 ---
 name: svelte-arch
-description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. FSD 계층(app/widgets/features/entities/shared)·slice·segment 표준 구조를 SvelteKit 방언(공식 config 수술 — vite.config sveltekit() 인라인)으로 완역해 안내·설치·감사하고, FSD가 비워둔 절반(서버 계층 remote→service→repository, dumb(view)/smart(container) 분리, 실행형 매니페스트 발견성, 클래스 배열 규약)을 자체 규범으로 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service 파일을 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"네이밍 규칙"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치(arch kit)하거나 kit 버전을 업데이트할 때 반드시 사용한다.
+description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. SvelteKit 공식 기본 좌표(src/routes·src/lib)를 유지한 FSD 계층·slice·segment를 안내·설치·감사하고, 서버 계층 remote→service→repository, dumb(view)/smart(container), 실행형 매니페스트, 인증 경계 규범을 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service·인증 경계를 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"인증 컴포넌트 역할"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치하거나 kit 버전을 업데이트할 때 반드시 사용한다.
 ---
 
-# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v5)
+# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v6)
 
 한 문장 정의: **FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·발견성)을 자체 규범으로 채우는** 아키텍처 어드바이저 + 주입 킷. 목적은 하나 — 같은 것을 두 번 만들지 않게 하고, 팀(사람+에이전트)이 실수할 자리를 없앤다.
+
+**런타임 정본은 Bun이다.** kit·audit·migration·릴리스 가드는 Bun으로만 실행한다. `node:` 표준 라이브러리 import는 Bun 호환 레이어이므로 Node 런타임을 요구하거나 fallback하지 않는다.
 
 ## 4단 주소 체계 — 모든 파일은 주소로 역할을 선언한다
 
 ```text
 계층(수직) / slice(도메인) / segment(기술 성격) / 파일명 접미사(데이터 축)
-src/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
+src/lib/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 ```
 
 - 앞 3단 = FSD 표준(디렉토리). 마지막 1단 = svelte-arch 오버레이(파일명 — FSD가 비워둔 dumb/smart 축).
-- SvelteKit 수술(공식 config — vite.config `sveltekit()` 인라인, kit 2.62.0+ · 예외만 svelte.config 유지): `files.lib='src'` · `files.routes='src/app/routes'` · `files.appTemplate='src/app/index.html'` + `@/*` 별칭. `src/server` = `$lib/server`(서버 전용 보호).
+- SvelteKit 공식 기본 좌표를 유지한다: `src/routes` · `src/lib` · `src/app.html` · `src/app.css` · `src/hooks.*`. deprecated `kit.files.*` 커스텀 좌표나 별도 `@/*` 별칭을 만들지 않는다. `src/lib/server` = `$lib/server`(서버 전용 보호).
 
 ## 계층 레지스트리 (요약 — 카드 전문은 constitution.md)
 
 | 계층 | 역할 한 줄 |
 |---|---|
-| `src/app/` | 초기화 — index.html·hooks·app.css·**routes/**(글루 + pages first 콜로케이션) |
-| `src/pages/` | **닫힘**(기본) — routes 콜로케이션이 전담. config로만 개방 |
-| `src/widgets/` | 자립 대형 블록 — `*Section` view/container 페어·앱 셸(app-sidebar 등) |
-| `src/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
-| `src/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model/types)·remote(api) |
-| `src/shared/` | 업무 무관 — `ui/`(디자인 시스템)·`vendor/`(shadcn 원본 보존)·`lib/`·`model/`·`config/` |
-| `src/server/` | FSD 밖 병렬 스택 — `<slice>/`에 port(계약 인터페이스)·service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
+| `src/` + `src/routes/` | 초기화(app.html·hooks·app.css) + 글루/pages first 콜로케이션 |
+| `src/lib/pages/` | **닫힘**(기본) — routes 콜로케이션이 전담. config로만 개방 |
+| `src/lib/widgets/` | 자립 대형 블록 — `*Section` view/container 페어·앱 셸(app-sidebar 등) |
+| `src/lib/features/` | 사용자 상호작용(동사) — 폼·다이얼로그·액션 |
+| `src/lib/entities/` | 업무 개체(명사) — 표시 view·wire 타입(model/types)·remote(api) |
+| `src/lib/shared/` | 업무 무관 — `ui/`(디자인 시스템)·`vendor/`(shadcn 원본 보존)·`lib/`·`model/`·`config/` |
+| `src/lib/server/` | FSD 밖 병렬 스택 — `<slice>/`에 port(계약 인터페이스)·service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
 
 **segment**: `ui/`(`.view`+`.container` 페어) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
 
@@ -50,7 +52,7 @@ entity의 ui에 container를 만들고 싶다 = widget 승격 신호(entities/ui
 
 1. **몰라서 만든다** → `bun run arch:manifest`가 shared/ui API 전체 + `--slice <이름>`으로 관련 slice·서버 API·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(있으면 소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(55룰, steiger 흡수)이 커밋을 차단 (pre-commit)
+3. **그래도 만들면** → `bun run arch:audit`(57룰, steiger 흡수)이 커밋을 차단 (pre-commit)
 
 ## 프로토콜 — 작업 전 의무 실행
 
@@ -85,8 +87,8 @@ UI·서버 작업 감지
 
 | 채널 (전부 레포 커밋) | 발동 | 내용 |
 |---|---|---|
-| 루트 CLAUDE.md 마커 블록 | 매 세션 자동 | 상시 트리거 카드 — 주소 체계·배치 사다리·매니페스트 의무 |
-| 계층·slice 루트 `CLAUDE.md` | 폴더 파일 작업 시 자동 로드 | 폴더 자기서술 (segment는 면제 — 밀도=컨텍스트 비용) |
+| 루트 AGENTS.md 마커 블록 | 매 세션 자동 | 운영 카드 — 전 작업 불변식·사람 판단 대기·정본 포인터만 (32KiB 초과 경고) |
+| 계층·slice 루트 `AGENTS.md` | 폴더 파일 작업 시 자동 로드 | 역할 1행 + 두는 것/두지 않는 것 두 bullet만 (segment 면제, 16KiB 초과 경고) |
 | `.svelte-arch/` (CLI·config·훅 마커) | 실행·커밋 시 | 집행 — 위반 메시지 = 규칙 요약+처방 |
 
 ## progressive disclosure
@@ -94,9 +96,9 @@ UI·서버 작업 감지
 | 필요한 것 | 파일 |
 |---|---|
 | 헌법 전문 — 공리·계층/segment/종별 카드·판정표 2종(상태 거주지·하강 판정례)·2×2 매트릭스 | `references/constitution.md` |
-| FSD 2.1 번역·용어 사전(업계 대응어)·config 수술 정본(vite.config 흡수) | `references/fsd-guide.md` |
+| FSD 2.1 번역·용어 사전(업계 대응어)·SvelteKit 공식 기본 좌표 정본 | `references/fsd-guide.md` |
 | 배치 사다리·승격 관문 4테스트·강등·Rule of Two·해치 규율 | `references/discipline.md` |
-| 감사 룰 55 전량 (steiger 흡수분 인라인 표기) | `references/audit-rules.md` |
+| 감사 룰 57 전량 (steiger 흡수분 인라인 표기) | `references/audit-rules.md` |
 | 매니페스트 출력 명세·추출 앵커·버전 체인 | `references/manifest-protocol.md` |
 | 기존 프로젝트 이행 플레이북 | `references/adoption.md` |
 | kit 설치·업데이트·소유권·semver | `references/kit.md` |
@@ -114,3 +116,4 @@ UI·서버 작업 감지
 - **remote를 stable로 취급** — SvelteKit remote functions는 **experimental**(opt-in flags·"subject to change"·minor 간 breaking 이력). SvelteKit **버전 고정** + remote 경계는 **Standard Schema(Zod) 검증**(공개 HTTP 엔드포인트 — 미검증 DoS 실증 사례).
 - **`cn()`·템플릿 리터럴 클래스** — 내장 `class={[...]}` 배열만 (vendor 내부만 예외).
 - **+page.server.ts에서 데이터 로딩** — 가드·메타 전용. 수급 사다리: remote → universal load → +page.server → raw endpoint.
+- **보호 컴포넌트마다 로그인 분기** — `hooks.server`는 locals 적재, 보호 `+layout.server`는 307 차단, Remote/API/action은 매 요청 guard, SPA 만료는 전역 Query/HTTP 경계가 담당한다. 보호 view/container는 인증을 전제하고 데이터 상태만 표현한다.

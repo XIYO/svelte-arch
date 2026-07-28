@@ -1,5 +1,17 @@
 # Changelog
 
+## 6.0.0 — 2026-07-26
+
+**SvelteKit 공식 기본 좌표 복귀 + 인증 경계 헌법화 (MAJOR).** deprecated `kit.files.*` 커스텀 좌표를 정본에서 제거하고 `src/routes`·`src/lib`·`src/app.html`·`src/hooks.*` 기본값으로 수렴했다. 보호 route의 인증 불변식 소유자를 route/request 전역 경계로 고정해 leaf component의 로그인 분기 복제를 막는다.
+
+- 헌법 A12: hooks는 locals 적재, 보호 `+layout.server`는 307 차단, Remote/API/action은 매 요청 guard, SPA 세션 만료는 전역 Query/HTTP 경계가 담당한다. 영속 캐시 보존과 비로그인 노출 정책은 분리한다.
+- `PROTECTED_COMPONENT_AUTH_BRANCH`: 프로젝트가 선언한 보호 route 아래 view/container의 `useSession()` 재조회와 인증 진입 경로 CTA·이동을 error로 차단한다. 명시적 인증 mutation 뒤 이동하는 container만 `transitionComponents`에 정확한 파일로 선언하며, 이 파일도 세션 재조회는 금지한다. 감사 규칙은 57개.
+- kit/CLI/생성기/sync/문서의 좌표를 `src/lib/{widgets,features,entities,shared,server}`와 `$lib/*`로 변경했다. 공식 기본 좌표·v6 migration·인증 감사 회귀 테스트를 추가했다.
+- `migrations/6.0.0.mjs`: 이미 기본 좌표인 프로젝트는 멱등 통과한다. 비어 있는 구 디렉터리는 무시하고, 실제 v5 커스텀 좌표·deprecated 설정이 남은 프로젝트만 충돌 위험이 있는 자동 이동 대신 정확한 수동 매핑을 출력하고 중단한다.
+- 매뉴얼 파일명 정본을 `CLAUDE.md` → `AGENTS.md`로 전환(agents.md 표준). 킷 생성·sync·audit·템플릿이 전부 AGENTS.md 기준이며, `migrations/6.0.0.mjs`가 소비 프로젝트의 기존 `**/CLAUDE.md`를 좌표 가드와 무관하게 멱등 rename한다(대상에 AGENTS.md가 이미 있으면 불가침, 내용·마커 블록 보존).
+- `AGENTS_CONTEXT_BUDGET`(warn): 자동 로드되는 root `AGENTS.md`는 32KiB, 범위 매뉴얼은 16KiB를 넘으면 감사가 중복 정리 신호를 낸다. root 운영 카드·범위 역할 카드 템플릿과 회귀 테스트를 함께 추가했다.
+- kit·audit·migration·릴리스 검증 런타임을 **Bun 전용**으로 명시했다. pre-push의 Node fallback을 제거하고, arch 회귀 테스트도 `Bun.spawnSync()`로 kit을 실행한다.
+
 ## 5.8.0 — 2026-07-24
 
 **Codex 플러그인 배포 지원 (MINOR).** 기존 Claude Code 플러그인과 같은 저장소·같은 `skills/svelte-arch` 정본을 Codex에서도 설치할 수 있도록 Codex manifest와 저장소 마켓플레이스를 추가했다.
