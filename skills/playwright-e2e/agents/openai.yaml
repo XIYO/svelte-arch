@@ -1,0 +1,4 @@
+interface:
+  display_name: "Playwright E2E Design"
+  short_description: "Maintainable browser tests with page objects"
+  default_prompt: "Refactor this Playwright E2E into domain page objects, fixtures, and readable report steps."

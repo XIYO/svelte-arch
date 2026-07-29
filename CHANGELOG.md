@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.1.0 — 2026-07-29
+
+**Playwright E2E 설계 스킬 추가 (MINOR).** `playwright-e2e`가 장황한 브라우저 스크립트를 도메인·논리 그룹·happy/unhappy 보고서 계층과 Page Object/fixture 경계로 바꾸는 절차를 제공한다.
+
+- 테스트 본문은 업무 행동과 사용자 가시 결과만 서술하고, selector·다이얼로그·폼 전이는 페이지/도메인 객체로 격리한다.
+- role·label 우선 locator, 복합 위젯의 좁은 `data-testid` 계약, 독립 데이터 fixture, HTML report·trace 증적 규칙을 명시한다.
+- `test.step()`은 보고서의 의미 있는 행동 단위이며, 프로덕션 화면 오버레이를 주입하는 기능이 아님을 고정한다.
+
 ## 6.0.0 — 2026-07-26
 
 **SvelteKit 공식 기본 좌표 복귀 + 인증 경계 헌법화 (MAJOR).** deprecated `kit.files.*` 커스텀 좌표를 정본에서 제거하고 `src/routes`·`src/lib`·`src/app.html`·`src/hooks.*` 기본값으로 수렴했다. 보호 route의 인증 불변식 소유자를 route/request 전역 경계로 고정해 leaf component의 로그인 분기 복제를 막는다.
