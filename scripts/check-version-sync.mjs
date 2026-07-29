@@ -2,8 +2,8 @@
 /**
  * 릴리스 버전 동기화 가드 — svelte-arch 저장소 자체 유지보수 스크립트(소비 프로젝트에 배포되는 kit 아님).
  *
- * 버전이 다섯 곳에 흩어져 있어 릴리스마다 하나를 빠뜨리기 쉽다(실제로 plugin.json이 5.1.0에
- * 방치된 채 kit/CHANGELOG만 5.3.0으로 올라간 적 있음). 이 스크립트는 다섯 소스가 정확히 일치하는지
+ * 버전이 여섯 곳에 흩어져 있어 릴리스마다 하나를 빠뜨리기 쉽다(실제로 plugin.json이 5.1.0에
+ * 방치된 채 kit/CHANGELOG만 5.3.0으로 올라간 적 있음). 이 스크립트는 여섯 소스가 정확히 일치하는지
  * 검사하고, 어긋나면 비-0 종료해 pre-push 훅이 push를 막는다.
  *
  *   1. skills/svelte-arch/kit/VERSION  →  파일 내용        (SSOT — sync.mjs 가 런타임에 읽는 값)
@@ -11,6 +11,7 @@
  *   3. .claude-plugin/plugin.json  →  "version"          (Claude Code /plugin 이 읽는 값)
  *   4. .codex-plugin/plugin.json   →  "version"          (Codex plugin 이 읽는 값)
  *   5. CHANGELOG.md  →  최상단 "## X.Y.Z" 헤딩
+ *   6. skills/svelte-arch/SKILL.md →  진입점의 `vX.Y.Z` 표기
  *
  * arch.mjs 는 소비 프로젝트에 `.svelte-arch/arch.mjs` 로 복사돼 "파일이 곧 상태"가 되어야 하므로
  * VERSION 을 런타임에 읽지 않고 하드코딩한다(의도적). 그래서 둘이 별개 소스로 남아 드리프트 위험이
@@ -56,12 +57,46 @@ async function changelogVersion() {
   return m[1];
 }
 
+/** 스킬 진입점 제목의 `svelte-arch vX.Y.Z` — 에이전트가 보는 버전 표기도 릴리스 계약이다. */
+async function skillVersion() {
+  const m = (await read("skills/svelte-arch/SKILL.md")).match(
+    /^#\s+SvelteKit.*`svelte-arch` v(\d+\.\d+\.\d+)/m,
+  );
+  if (!m) throw new Error("SKILL.md 에서 svelte-arch 버전 표기를 찾지 못했습니다");
+  return m[1];
+}
+
+/**
+ * 코드·감사 카탈로그·Claude 노출 설명의 룰 수를 함께 묶는다.
+ * 룰 코드 문자열은 arch.mjs에서만 대문자 snake_case로 표현하므로, 이 집합이 실행형 정본이다.
+ */
+async function auditRuleCounts() {
+  const source = await read("skills/svelte-arch/kit/scripts/arch.mjs");
+  const actual = new Set(
+    [...source.matchAll(/'([A-Z][A-Z_]{2,})'/g)].map((match) => match[1]),
+  ).size;
+  const catalog = (await read("skills/svelte-arch/references/audit-rules.md")).match(
+    /^#\s+감사 룰 매트릭스\s+—\s+(\d+)룰/m,
+  );
+  const claudeDescription = JSON.parse(
+    await read(".claude-plugin/plugin.json"),
+  ).description.match(/(\d+)룰 감사/);
+  if (!catalog || !claudeDescription)
+    throw new Error("감사 룰 수 표기(audit-rules.md 또는 Claude manifest)를 찾지 못했습니다");
+  return {
+    "arch.mjs 실행형 룰": actual,
+    "audit-rules.md 카탈로그": Number(catalog[1]),
+    "Claude manifest 설명": Number(claudeDescription[1]),
+  };
+}
+
 const sources = {
   "kit/VERSION (SSOT)": await versionFile(),
   "arch.mjs KIT_VERSION": await kitVersion(),
   "Claude plugin.json": await pluginVersion(".claude-plugin/plugin.json"),
   "Codex plugin.json": await pluginVersion(".codex-plugin/plugin.json"),
   "CHANGELOG.md 최상단": await changelogVersion(),
+  "SKILL.md 진입점": await skillVersion(),
 };
 
 const bad = Object.entries(sources).filter(([, v]) => !SEMVER.test(v));
@@ -74,14 +109,23 @@ if (bad.length) {
 const distinct = [...new Set(Object.values(sources))];
 if (distinct.length !== 1) {
   console.error(
-    "\x1b[31m✗\x1b[0m 릴리스 버전 불일치 — 다섯 소스가 달라 push 를 막습니다:",
+    "\x1b[31m✗\x1b[0m 릴리스 버전 불일치 — 여섯 소스가 달라 push 를 막습니다:",
   );
   for (const [name, v] of Object.entries(sources))
     console.error(`    ${name.padEnd(22)} ${v}`);
-  console.error("\n  → 다섯 곳을 같은 버전으로 맞춘 뒤 다시 push 하세요.");
+  console.error("\n  → 여섯 곳을 같은 버전으로 맞춘 뒤 다시 push 하세요.");
+  process.exit(1);
+}
+
+const counts = await auditRuleCounts();
+const distinctCounts = [...new Set(Object.values(counts))];
+if (distinctCounts.length !== 1) {
+  console.error("\x1b[31m✗\x1b[0m 감사 룰 수 불일치 — 실행형 정본·문서·노출 설명을 맞추세요:");
+  for (const [name, count] of Object.entries(counts))
+    console.error(`    ${name.padEnd(26)} ${count}`);
   process.exit(1);
 }
 
 console.log(
-  `\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 다섯 소스 모두 v${distinct[0]}`,
+  `\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 여섯 소스 모두 v${distinct[0]} · 감사 룰 ${distinctCounts[0]}개`,
 );

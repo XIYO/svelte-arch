@@ -5,6 +5,7 @@
  * 실행: 프로젝트 루트에서  bun <스킬경로>/kit/sync.mjs  [--force]
  * - 최초 실행 = 스캐폴드 / 재실행 = kit-owned 동기화 + 대기 마이그레이션 자동 적용
  * - 설치물 = .svelte-arch/ + package.json arch:* 5줄 + AGENTS.md 마커 블록 + 훅 파일 안 마커 블록
+ *   + .prettierignore 안 kit CLI 마커 블록
  *   + 계층·slice AGENTS.md 씨앗(없는 곳만) + core.hooksPath 미설정 시 .githooks 지정
  * - kit 은 core.hooksPath 를 소유하지 않는다: 기존 hooksPath(없으면 .githooks 생성)를 존중하고
  *   그 pre-commit 안의 마커 구간만 관리한다 — 블록 밖·다른 훅은 불가침.
@@ -143,6 +144,30 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 	}
 }
 
+// ── 3.5 Prettier 경계 — upstream kit CLI는 프로젝트 formatter의 소유물이 아니다 ──
+// arch.mjs는 sync가 통째로 교체하는 vendored 실행 파일이다. 프로젝트마다 Prettier 버전·폭·줄바꿈
+// 규칙이 달라 그 파일까지 포맷하면 다음 sync 때 무의미한 대형 diff가 반복된다. `.prettierignore`의
+// marker 블록 안에서 이 파일만 제외한다. Svelte/TS 프로젝트 소스와 kit templates는 계속 검사한다.
+{
+	const p = join(ROOT, '.prettierignore');
+	const BEGIN = '# >>> svelte-arch:begin';
+	const END = '# <<< svelte-arch:end';
+	const block = [
+		`${BEGIN} (kit v${KIT_VERSION} — 이 블록만 kit 관리, upstream CLI 포맷 경계)`,
+		'# .svelte-arch/arch.mjs는 sync가 통째로 교체하는 kit-owned 실행 파일이다.',
+		'.svelte-arch/arch.mjs',
+		END
+	].join('\n');
+	let ignore = existsSync(p) ? await readFile(p, 'utf-8') : '';
+	if (ignore.includes(BEGIN) && ignore.includes(END)) {
+		ignore = ignore.slice(0, ignore.indexOf(BEGIN)) + block + ignore.slice(ignore.indexOf(END) + END.length);
+	} else {
+		ignore = ignore.trimEnd() + (ignore.trim() ? '\n\n' : '') + block + '\n';
+	}
+	await writeFile(p, ignore, 'utf-8');
+	done.push('.prettierignore kit CLI 마커 블록 (프로젝트 포맷 규칙 불가침)');
+}
+
 // ── 4. AGENTS.md 씨앗 — 계층·slice 루트 (없을 때만, FSD 트리에서만) ──────
 const LAYER_ROLES = {
 	'src': '초기화 계층 — app.html·hooks·app.css·routes(글루 + pages first 콜로케이션)',
@@ -192,10 +217,29 @@ const LAYER_ROLES = {
 }
 
 // ── 구 구조 감지 ─────────────────────────────────────────────────────────
+// 디렉터리만 남은 이행 흔적은 audit/manifest를 막을 근거가 아니다. 실제 소스 파일이
+// 구 좌표에 있을 때만 plan 안내를 낸다. arch.mjs의 같은 판정과 의도적으로 맞춘다.
+function hasSourceFiles(dir) {
+	if (!existsSync(dir)) return false;
+	const ignored = new Set(['node_modules', '.git', '.svelte-kit', 'build', 'dist', 'coverage']);
+	const visit = (current) => {
+		for (const entry of readdirSync(current, { withFileTypes: true })) {
+			const path = join(current, entry.name);
+			if (entry.isDirectory()) {
+				if (!ignored.has(entry.name) && visit(path)) return true;
+			} else if (entry.isFile() && /\.(?:svelte|[cm]?[jt]sx?)$/.test(entry.name)) {
+				return true;
+			}
+		}
+		return false;
+	};
+	return visit(dir);
+}
+
 const legacy = ['src/app/routes', 'src/server', 'src/shared', 'src/entities', 'src/features', 'src/widgets', 'src/pages']
-	.some((path) => existsSync(join(ROOT, path)) && readdirSync(join(ROOT, path)).length > 0)
-	|| (existsSync(join(ROOT, 'src/lib/components'))
-		&& !['shared', 'entities', 'features', 'widgets', 'pages'].some((layer) => existsSync(join(ROOT, 'src/lib', layer))));
+	.some((path) => hasSourceFiles(join(ROOT, path)))
+	|| (hasSourceFiles(join(ROOT, 'src/lib/components'))
+		&& !['shared', 'entities', 'features', 'widgets', 'pages'].some((layer) => hasSourceFiles(join(ROOT, 'src/lib', layer))));
 
 // ── 요약 ─────────────────────────────────────────────────────────────────
 log(`\n✓ arch kit v${KIT_VERSION} 설치/업데이트 완료 → ${norm(ROOT)}`);

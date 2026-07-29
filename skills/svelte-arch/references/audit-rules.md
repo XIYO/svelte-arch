@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 57룰 (v6, steiger 흡수 + 인증 경계)
+# 감사 룰 매트릭스 — 67룰 (v7.1, steiger 흡수 + 인증 경계 + Svelte 5 attachment)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.
@@ -31,7 +31,7 @@
 | `STATE_MODULE_IN_VIEW` | view | `*.svelte.ts` 값 import (container 전용) | error |
 | `APP_STATE_IN_VIEW` | view | `$app/state`·`$app/navigation` import — 외부 정본은 prop 주입 | error |
 | `GLUE_LOGIC` | +page/+layout/+error.svelte | `$state(`·`$effect`·remote import | error |
-| `SEGMENT_SUFFIX_MISMATCH` | 접미사 전종 | `.view/.container`가 ui·routes 콜로케이션 밖 / `.remote`가 api 밖 / `.svelte.ts`가 model 밖 / `.util`이 lib 밖 / `types.ts`가 model 밖 | error |
+| `SEGMENT_SUFFIX_MISMATCH` | 접미사 전종 | `.view/.container/.attach`가 ui·routes 콜로케이션 밖 / `.remote`가 api 밖 / `.svelte.ts`가 model 밖 / `.util`이 lib 밖 / `types.ts`가 model 밖 | error |
 | `SHARED_UI_PURITY` | shared/** | `$app/*`·`.remote`·server·업무 계층 import | error |
 | `DOMAIN_DEFAULT_IN_SHARED_UI` | shared/ui | 문구 prop 기본값에 비중립 어휘 (중립 목록 = config) | warn |
 | `CLASS_MERGE_IMPORT` | 팀 레이어 | cn/clsx/tailwind-merge/classnames import (vendor 면제) | error |
@@ -78,20 +78,21 @@
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
-| `UNMARKED_TS` | 관장 `.ts` 전체 | §3 종별 밖 무표 (vendor·예약·`*.d.ts` 면제) | error |
+| `UNMARKED_TS` | 관장 `.ts` 전체 | §3 종별 밖 무표 (`*.attach.ts` 포함, vendor·예약·`*.d.ts` 면제) | error |
 | `IMPURE_UTIL` | util | `$app/*`·server·api·model 상태 import | error |
 | `TYPES_ONLY` | types.ts·*.types.ts | 런타임 값 export (enum 포함 — union 타입 권장) | error |
 | `MISSING_AGENTS_MD` | 계층·slice 루트 | AGENTS.md 부재 (segment 면제 — kit이 씨앗 생성) | error |
 | `AGENTS_CONTEXT_BUDGET` | root·범위 AGENTS.md | root 32KiB / 범위 16KiB 초과 — 자동 로드 문맥 예산 경고, 코드·정본 링크로 중복 하강 | warn |
 | `SPEC_PLACEMENT` | src 안 spec | 같은 폴더에 동일 Base 검증 대상 부재 — 유닛 spec은 콜로케이션 의무, 통합/e2e 루트는 `config.specRoots`(기본 `tests`/`e2e`) | error |
 
-## F군 — Svelte 5 문법 (9)
+## F군 — Svelte 5 문법 (10)
 
 | 코드 | 대상 | 위반 | 심각도 |
 |---|---|---|---|
 | `LEGACY_EXPORT_LET` | 비-vendor `.svelte` | `export let` — `$props()` + `Props`로 | error |
 | `LEGACY_REACTIVE_STATEMENT` | 비-vendor `.svelte` | `$:` — `$derived`/`$effect`로 | error |
 | `LEGACY_EVENT_DISPATCHER`·`LEGACY_EVENT_DIRECTIVE` | 비-vendor `.svelte` | `createEventDispatcher`·`on:` — `onXxx` callback·이벤트 속성으로 | error |
+| `LEGACY_ACTION_DIRECTIVE` | 비-vendor `.svelte` | `use:` action — `Attachment<T>` + `{@attach}`로 (외부 action은 `fromAction()` 브리지) | error |
 | `LEGACY_COMPONENT_GLOBAL`·`LEGACY_SLOT` | 비-vendor `.svelte` | `$$props` 계열·`<slot>` — `$props`·Snippet/`{@render}`로 | error |
 | `LEGACY_SVELTE_COMPONENT`·`LEGACY_APP_STORES`·`LEGACY_LIFECYCLE` | 비-vendor `.svelte` | `<svelte:component>`·`$app/stores`·`beforeUpdate`/`afterUpdate` | error |
 

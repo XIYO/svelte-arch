@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.1.0 — 2026-07-29
+
+**Svelte 5 attachment 정합 + 실제 코드 기반 구조 감지 (MINOR).** 최신 공식 권장 문법을 AGENTS·감사·파일 종별에 같은 방식으로 적용하고, 이행 뒤 남은 빈 폴더 때문에 감사를 건너뛰던 구멍을 닫았다.
+
+- `*.attach.ts`를 ui 종별로 인식하고, `use:`를 `LEGACY_ACTION_DIRECTIVE` 오류로 지목해 `Attachment<T>` + `{@attach}`로 안내한다. Svelte 5.29+의 공식 attachment 권장과 일치하며 외부 action은 `fromAction()` 브리지를 쓴다.
+- AGENTS 마커는 Svelte MCP `svelte_autofixer`(연결 시) → `bun run check` → `arch:audit`의 검증 순서를 기억시킨다. 수기 지시만 늘리지 않고 pre-commit audit가 함께 집행한다.
+- 구 구조 감지는 비어 있는 디렉터리가 아닌 실제 Svelte/JS/TS 소스만 본다. FSD 프로젝트의 잔존 폴더가 audit·manifest를 침묵시키지 않으며, `arch.mjs`와 `sync.mjs` 양쪽 회귀 테스트를 추가했다.
+- sync는 `.prettierignore` 안 marker 블록으로 kit-owned `.svelte-arch/arch.mjs`만 formatter 대상에서 분리한다. 프로젝트 소스의 lint는 그대로 유지하며, kit CLI가 매 sync마다 재포맷돼 대형 diff를 만드는 문제를 막는다.
+- SKILL·헌법·kit·매니페스트 문서에 남아 있던 v6 표기를 갱신했다. 릴리스 가드는 여섯 번째 버전 표기(SKILL 제목)와 실행형 감사 룰 수(67)를 문서·manifest 설명과 대조한다.
+
 ## 7.0.0 — 2026-07-29
 
 **Svelte 5 문법 게이트 + 코딩 시점 AGENTS 프로토콜 (MAJOR).** 새 코드에서 runes 규칙을 잊어도 `arch:audit`가 레거시 문법을 오류로 차단하고, kit이 주입하는 루트 AGENTS 블록이 작업 전·중·후의 선택을 짧게 재주입한다.

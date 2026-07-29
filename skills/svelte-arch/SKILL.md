@@ -3,7 +3,7 @@ name: svelte-arch
 description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. SvelteKit 공식 기본 좌표(src/routes·src/lib)를 유지한 FSD 계층·slice·segment를 안내·설치·감사하고, 서버 계층 remote→service→repository, dumb(view)/smart(container), 실행형 매니페스트, 인증 경계 규범을 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service·인증 경계를 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"인증 컴포넌트 역할"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치하거나 kit 버전을 업데이트할 때 반드시 사용한다.
 ---
 
-# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v6)
+# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v7.1.0)
 
 한 문장 정의: **FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·발견성)을 자체 규범으로 채우는** 아키텍처 어드바이저 + 주입 킷. 목적은 하나 — 같은 것을 두 번 만들지 않게 하고, 팀(사람+에이전트)이 실수할 자리를 없앤다.
 
@@ -31,9 +31,9 @@ src/lib/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 | `src/lib/shared/` | 업무 무관 — `ui/`(디자인 시스템)·`vendor/`(shadcn 원본 보존)·`lib/`·`model/`·`config/` |
 | `src/lib/server/` | FSD 밖 병렬 스택 — `<slice>/`에 port(계약 인터페이스)·service·repository·adapter (+`auth/guard`·`database/schema`·`shared/`) |
 
-**segment**: `ui/`(`.view`+`.container` 페어) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
+**segment**: `ui/`(`.view`+`.container` 페어 + `*.attach.ts` DOM attachment) · `api/`(`<slice>.remote.ts`) · `model/`(`types.ts` wire 정본 + `*.svelte.ts` 클라 상태) · `lib/`(`*.util.ts`) · `config/`. 비표준 segment = 위반.
 
-**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.container`(smart — remote 결합, 마크업 0. 근거 = remote/`<svelte:boundary>` 결합의 **기계적 경계**이지 "업계 표준이라서"가 아님 — Abramov 2019 철회 인지, fsd-guide §6. 구표기 `.live` 폐기 = `LEGACY_SUFFIX`) · `.stories` · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.port`(계약 인터페이스, 타입만) · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
+**접미사(전면 마킹 — 무표 = 위반)**: `.view`(dumb — mock props만으로 렌더) · `.container`(smart — remote 결합, 마크업 0. 근거 = remote/`<svelte:boundary>` 결합의 **기계적 경계**이지 "업계 표준이라서"가 아님 — Abramov 2019 철회 인지, fsd-guide §6. 구표기 `.live` 폐기 = `LEGACY_SUFFIX`) · `.attach`(DOM lifecycle — `Attachment<T>` + `{@attach}`, ui 또는 routes 콜로케이션) · `.stories` · `.remote` · `.svelte.ts` · `.util` · `.service` · `.repository` · `.port`(계약 인터페이스, 타입만) · `.adapter` · `.guard` · `.schema` · `.config` · `types.ts`.
 
 ## 배치 사다리 (pages first — 이 스킬의 심장)
 
@@ -72,7 +72,7 @@ UI·서버 작업 감지
 → ① arch:manifest 실행·주입 (kit 미설치면 설치 제안 — references/kit.md)
 → ② 소비 결정: 있으면 소비 → 모자라면 variant → 없으면 배치 사다리 ①(콜로케이션 출생)
 → ③ 신설: arch:new 생성기 (segment 골격·public API·앵커 선재)
-→ ④ arch:audit 통과
+→ ④ Svelte 변경이면 연결된 공식 Svelte MCP `svelte_autofixer` 전후 확인 → `bun run check` + arch:audit 통과
 ```
 
 **기존 프로젝트 온보딩 — 3단 이행 파이프라인 (동의 필수 규범)**: 구 구조 감지 시:
@@ -112,6 +112,7 @@ UI·서버 작업 감지
 - **container에 마크업·로직이 자란다** — 마크업은 view의 prop 부족, 로직은 model `*.svelte.ts` 추출 신호.
 - **view가 `$app/state`로 URL을 읽는다** — 외부 정본은 prop 주입(`active` 등). container·글루 소관.
 - **`.live.svelte` 잔존** — kit v5 구표기, `LEGACY_SUFFIX`가 즉시 지목. 신규는 처음부터 `.container.svelte`, 기존 프로젝트는 `arch-sync` 재실행 시 `migrations/5.0.0.mjs`가 자동 rename.
+- **`use:` action 신설** — Svelte 5.29+의 신규 DOM lifecycle은 `Attachment<T>` + `{@attach}`가 정본이다. 외부 라이브러리 action만 `fromAction()`으로 감싼다.
 - **remote에 값 export** — remote function 외 값 export는 서버 트랜스폼에서 즉사. 타입은 합법.
 - **remote를 stable로 취급** — SvelteKit remote functions는 **experimental**(opt-in flags·"subject to change"·minor 간 breaking 이력). SvelteKit **버전 고정** + remote 경계는 **Standard Schema(Zod) 검증**(공개 HTTP 엔드포인트 — 미검증 DoS 실증 사례).
 - **`cn()`·템플릿 리터럴 클래스** — 내장 `class={[...]}` 배열만 (vendor 내부만 예외).

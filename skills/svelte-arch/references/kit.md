@@ -1,4 +1,4 @@
-# arch kit — 설치·업데이트·버전 관리 (v6)
+# arch kit — 설치·업데이트·버전 관리 (v7.1)
 
 > 킷은 **프로젝트 레포에 커밋되는 로컬 설치물**(머신 글로벌 0 — 머신 드리프트·CI 불가 방지). 이 스킬이 배포 채널.
 
@@ -14,6 +14,7 @@
 │   ├── plan-overrides.json  # (선택) plan 분류 수정 (project-owned)
 │   └── templates/           # arch:new 템플릿 (kit-owned)
 ├── <core.hooksPath>/pre-commit  # 기존 훅 파일 안 마커 블록만 kit 관리
+├── .prettierignore           # kit CLI 한 파일만 제외하는 마커 블록 (기존 규칙 불가침)
 ├── package.json             # arch:* 스크립트 5줄
 └── AGENTS.md                # 루트 마커 블록 (블록 안만 kit 관리)
 ```
@@ -25,6 +26,7 @@
 | `.svelte-arch/arch.mjs`·`templates/` | kit | 덮어씀 |
 | `.svelte-arch/config.mjs`·`plan-overrides.json` | **project** | 불가침 (없을 때만 씨앗) |
 | 훅 `pre-commit`의 **마커 블록 안** | kit | 블록만 교체 — **hooksPath와 블록 밖은 불가침** (기존 훅 체계 존중, 없으면 `.githooks` 생성) |
+| `.prettierignore`의 **kit CLI 마커 블록 안** | kit | `.svelte-arch/arch.mjs`만 제외 — 프로젝트 포맷 규칙·다른 파일은 불가침 |
 | 계층·slice `AGENTS.md` | project (씨앗은 kit) | 없는 곳만 씨앗 |
 | 루트 AGENTS.md 마커 블록 | kit (블록 안만) | 블록만 교체 |
 | package.json arch:* 키 | kit (해당 키만) | 해당 키만 갱신 |
@@ -39,6 +41,8 @@ bun <스킬경로>/kit/sync.mjs   # 최초=스캐폴드 / 재실행=kit-owned �
 - **v3→v4는 구조 비호환(MAJOR)**이지만 자동 코드모드가 아니다 — 3계층 분류가 사람 승인을 요구하므로 `migrations/4.0.0.mjs`는 kit-owned 동기화 + `arch:plan` 안내만 수행한다(스킬 규범: 승인 없이 구조 이행 금지).
 - **v4→v5는 접미사 개명(MAJOR)**이지만 판단 없는 기계적 rename+문자열 치환이라 `migrations/5.0.0.mjs`가 승인 없이 자동 수행한다(`.live.svelte`→`.container.svelte` git mv + 소스·AGENTS.md 안 문자열 치환 + `config.mjs`의 `allow.liveOutsideGlue`→`containerOutsideGlue` 키 rename, 멱등).
 - **v5→v6는 좌표계 개명(MAJOR)**이다. 공식 기본 좌표를 이미 쓰는 프로젝트는 `migrations/6.0.0.mjs`가 멱등 통과한다. 구 커스텀 좌표가 남아 있으면 디렉터리·deprecated `kit.files`·별칭·도구 설정을 함께 검토해야 하므로 자동 rename하지 않고 정확한 매핑을 출력해 중단한다. 구조 커밋으로 전환한 뒤 sync를 재실행한다.
+- **v6→v7은 문법 집행(MAJOR)**이다. 구조 이동 없이 Svelte 5 runes·Snippet·event callback·attachment 규칙을 audit과 AGENTS 카드에 추가한다. sync 뒤 `arch:audit`와 `bun run check`로 기존 부채를 확인한다.
+- **v7.1은 최신 attachment 정합(MINOR)**이다. `*.attach.ts`를 UI 종별로 인식하고 `use:`를 `{@attach}`로 올리며, 빈 구 디렉터리는 실제 이행 대상으로 오인하지 않는다.
 - 구 트리 감지 시: plan 안내 출력. 완료 후: `arch:audit` + `git diff` 리뷰 → `chore(arch): kit vX.Y.Z`.
 
 ## 업데이트 감지
@@ -49,7 +53,7 @@ bun <스킬경로>/kit/sync.mjs   # 최초=스캐폴드 / 재실행=kit-owned �
 
 - **MAJOR** — 규칙 비호환(좌표계·접미사 개편). 마이그레이션(또는 승인형 plan 경로) 동봉 의무.
 - **MINOR** — 룰 추가(도입 시 warn → 다음 MINOR error 승격은 외부 소비자가 생긴 뒤 재개하는 정책 — 현 단계는 소비자가 자기 프로젝트뿐이라 바로 error 허용).
-- **PATCH** — 버그픽스. 버전 갱신 = `kit/VERSION` + `arch.mjs` 헤더 + Claude/Codex `plugin.json` + CHANGELOG 다섯 곳 동시.
+- **PATCH** — 버그픽스. 버전 갱신 = `kit/VERSION` + `arch.mjs` 헤더 + Claude/Codex `plugin.json` + CHANGELOG + SKILL 제목 여섯 곳 동시.
 
 ## 루트 AGENTS.md 마커 블록
 

@@ -18,7 +18,7 @@ bun run arch:plan            # 이동·리네임·3계층 분류·배럴 처리�
 bun run arch:plan -- --full  # 그룹당 5건 요약 대신 전체 목록 (--json 도구용)
 ```
 
-- **분류는 휴리스틱 제안일 뿐**: `*Section` view/container 페어→widgets · Form/Dialog/Modal/Popup→features · 잔여 표시 부품→entities · 구 layout 셸→블록당 widget slice · 구 primitive→shared/ui(`.view` 리네임) · 구 ui vendor→shared/vendor · remote→entities/api · service·repository→server/<slice> · types→entities/model|shared/model · state→model 분산 · utils→shared/lib(`.util`).
+- **분류는 휴리스틱 제안일 뿐**: `*Section` view/container 페어→widgets · Form/Dialog/Modal/Popup→features · 잔여 표시 부품→entities · 구 layout 셸→블록당 widget slice · 구 primitive→shared/ui(`.view` 리네임) · 구 ui vendor→shared/vendor · remote→entities/api · service·repository→server/<slice> · types→entities/model|shared/model · state→model 분산 · utils→shared/lib(`.util`, 단 `*.attach.ts`는 shared/ui attachment로 보존).
 - **에이전트 규범**: 제안표를 사용자에게 보여주고 **"FSD 표준대로 이렇게 옮기겠습니다. 진행할까요?"** 를 반드시 묻는다. 분류 수정은 `.svelte-arch/plan-overrides.json`(`{ "<from>": "<to|skip>" }`)에 기록 → plan이 재산출.
 - 휴리스틱은 특정 네이밍 관례(`*Section`·`*Form` 등)에 과적합될 수 있다 — plan이 위치·프레임워크 관례 기반은 확실, 네이밍 추측은 `[?추정]`으로 태깅해 요약에 집계한다. 추정·미분류는 아래 §2.5의 2차 라운드가 확정한다.
 

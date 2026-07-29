@@ -1,7 +1,7 @@
 # svelte-arch
 
 **SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷.**
-FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·실행형 매니페스트 발견성)을 자체 규범으로 채운다 — 목적은 하나, **같은 것을 두 번 만들지 않게** 하고 팀(사람+AI 에이전트)이 실수할 자리를 없앤다.
+FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container·Svelte 5 attachment 규율·실행형 매니페스트 발견성)을 자체 규범으로 채운다 — 목적은 하나, **같은 것을 두 번 만들지 않게** 하고 팀(사람+AI 에이전트)이 실수할 자리를 없앤다.
 
 > A Feature-Sliced Design 2.1 advisor & injectable kit for SvelteKit — FSD layers/slices/segments on SvelteKit's official default paths, plus the half FSD leaves blank: a server layer standard (remote→service→repository), a dumb/smart suffix overlay (.view/.container), an authentication boundary, and an executable manifest that feeds fresh metadata to LLM agents.
 
@@ -66,7 +66,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 # 또는 에이전트에게: "이 프로젝트에 svelte-arch 설치해줘" (/arch-sync)
 ```
 
-설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + AGENTS.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + 계층·slice AGENTS.md 씨앗(없는 곳만). root는 운영 카드, 범위 매뉴얼은 역할 1행+두 bullet만 유지하며 audit이 32KiB/16KiB 초과를 경고한다. 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
+설치 풋프린트: `.svelte-arch/`(CLI·config·템플릿) + package.json 5줄 + AGENTS.md 마커 블록 + **기존 훅 파일 안 마커 블록**(hooksPath 불가침 — 미설정 시에만 `.githooks` 지정) + `.prettierignore`의 kit CLI 한 파일 마커(프로젝트 formatter와 동기화 대형 diff를 분리) + 계층·slice AGENTS.md 씨앗(없는 곳만). root는 운영 카드, 범위 매뉴얼은 역할 1행+두 bullet만 유지하며 audit이 32KiB/16KiB 초과를 경고한다. 룰은 레포에 커밋된 것만 존재 — 머신 글로벌 0.
 
 기존(비-FSD) 프로젝트는 SvelteKit 공식 기본 좌표(`src/routes`·`src/lib`)를 유지한 채 `arch:plan`이 이동·리네임 + **entities/features/widgets 3계층 분류 휴리스틱** 제안표를 산출하고, 사용자 승인 후에만 `--apply`한다.
 
@@ -77,7 +77,7 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 
 ### 릴리스 버전 동기화 가드 (저장소 기여자용)
 
-이 저장소의 릴리스 버전은 다섯 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 Claude/Codex가 옛 버전을 보고하거나 설치본과 소스가 어긋난다:
+이 저장소의 릴리스 버전은 여섯 곳에 박혀 있고 **항상 일치해야 한다** — 하나만 빠뜨리면 Claude/Codex가 옛 버전을 보고하거나 설치본과 소스가 어긋난다:
 
 | 소스 | 위치 |
 | --- | --- |
@@ -86,8 +86,9 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 | `.claude-plugin/plugin.json` `version` | Claude Code `/plugin`이 읽는 값 |
 | `.codex-plugin/plugin.json` `version` | Codex가 읽는 값 |
 | `CHANGELOG.md` 최상단 `## X.Y.Z` | 릴리스 기록 |
+| `skills/svelte-arch/SKILL.md` 제목 | 에이전트 진입점이 보는 버전 |
 
-`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 다섯 소스의 일치를 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
+`arch.mjs`는 소비 프로젝트로 복사돼 "파일이 곧 상태"여야 하므로 `VERSION`을 하드코딩한다(런타임 파일 읽기 없음) — 그래서 `VERSION`과 별개 소스로 남는다. `scripts/check-version-sync.mjs`가 여섯 소스의 일치와 실행형 감사 룰 수를 함께 검사하고, 어긋나면 `.githooks/pre-push`가 push를 막는다. 클론 후 1회 활성화:
 
 ```bash
 git config core.hooksPath .githooks

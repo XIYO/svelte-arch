@@ -29,9 +29,14 @@ try {
 	afterUpdate(() => {});
 </script>
 <button on:click={() => dispatch('save')}>{greeting}</button>
+<div use:legacyAction></div>
 <slot />
 <svelte:component this={Legacy} />\n`);
 	await write('src/routes/Legacy.view.svelte.spec.ts', 'export {};\n');
+	await write('src/lib/shared/ui/focus.attach.ts', `import type { Attachment } from 'svelte/attachments';
+
+export const focus: Attachment<HTMLElement> = (node) => node.focus();
+`);
 	await write('.svelte-arch/config.mjs', `export default {
 	specRoots: { integration: 'tests', e2e: 'playwright' }
 };\n`);
@@ -49,6 +54,7 @@ try {
 		'LEGACY_REACTIVE_STATEMENT',
 		'LEGACY_EVENT_DISPATCHER',
 		'LEGACY_EVENT_DIRECTIVE',
+		'LEGACY_ACTION_DIRECTIVE',
 		'LEGACY_SLOT',
 		'LEGACY_SVELTE_COMPONENT',
 		'LEGACY_APP_STORES',
@@ -58,6 +64,14 @@ try {
 		if (!violations.some((item) => item.code === code)) {
 			throw new Error(`${code} 위반을 찾지 못했습니다: ${output}`);
 		}
+	}
+	const attachmentFailures = violations.filter(
+		(item) =>
+			item.file === 'src/lib/shared/ui/focus.attach.ts' &&
+			['UNMARKED_TS', 'SEGMENT_SUFFIX_MISMATCH'].includes(item.code)
+	);
+	if (attachmentFailures.length) {
+		throw new Error(`Svelte 5 attachment를 정식 종별로 인식하지 못했습니다: ${JSON.stringify(attachmentFailures)}`);
 	}
 	console.log('✓ Svelte 5 runes 문법 게이트와 specRoots 설정 테스트 통과');
 } finally {

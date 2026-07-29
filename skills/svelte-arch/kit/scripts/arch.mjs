@@ -30,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '7.0.0';
+const KIT_VERSION = '7.1.0';
 const ROOT = process.cwd();
 const LIB_ROOT = 'src/lib';
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -134,6 +134,7 @@ function kindOf(rel) {
 	if (b.endsWith('.view.svelte')) return 'view';
 	if (b.endsWith('.container.svelte')) return 'container';
 	if (b.endsWith('.live.svelte')) return 'container'; // 구표기 — LEGACY_SUFFIX가 파일 단위 룰에서 별도 지목(이행기 페어·판정은 container와 동일하게 유지)
+	if (b.endsWith('.attach.ts')) return 'attachment';
 	if (b.endsWith('.svelte')) return 'unmarked-svelte';
 	if (b.endsWith('.svelte.ts')) return 'state';
 	if (b.endsWith('.remote.ts')) return 'remote';
@@ -168,11 +169,35 @@ async function collectFiles() {
 	return files;
 }
 
+/**
+ * 구조 감지는 디렉터리 유무가 아니라 실제 소스 유무로 판정한다.
+ *
+ * 이행 뒤 남은 빈 `src/features/foo/lib/` 같은 폴더는 FSD 위반이 아니다.
+ * 그런 자리표시자 하나 때문에 audit 전체를 건너뛰면 새 규칙(Svelte 문법 포함)이
+ * 전혀 집행되지 않으므로, legacy 좌표 아래에 코드 파일이 있을 때만 이행 모드다.
+ */
+function hasSourceFiles(dir) {
+	if (!existsSync(dir)) return false;
+	const ignored = new Set(['node_modules', '.git', '.svelte-kit', 'build', 'dist', 'coverage']);
+	const visit = (current) => {
+		for (const entry of readdirSync(current, { withFileTypes: true })) {
+			const path = join(current, entry.name);
+			if (entry.isDirectory()) {
+				if (!ignored.has(entry.name) && visit(path)) return true;
+			} else if (entry.isFile() && /\.(?:svelte|[cm]?[jt]sx?)$/.test(entry.name)) {
+				return true;
+			}
+		}
+		return false;
+	};
+	return visit(dir);
+}
+
 function isLegacyTree() {
 	const oldRoots = ['src/app/routes', 'src/server', 'src/shared', 'src/entities', 'src/features', 'src/widgets', 'src/pages'];
-	return oldRoots.some((path) => existsSync(join(ROOT, path)) && readdirSync(join(ROOT, path)).length > 0)
-		|| (existsSync(join(ROOT, 'src/lib/components'))
-			&& !LAYERS.some((layer) => existsSync(join(ROOT, LIB_ROOT, layer))));
+	return oldRoots.some((path) => hasSourceFiles(join(ROOT, path)))
+		|| (hasSourceFiles(join(ROOT, 'src/lib/components'))
+			&& !LAYERS.some((layer) => hasSourceFiles(join(ROOT, LIB_ROOT, layer))));
 }
 
 function legacyNotice(cmd) {
@@ -563,7 +588,7 @@ async function runManifest(args, config, files) {
 	return 0;
 }
 
-// ── audit — 57룰 ─────────────────────────────────────────────────────────
+// ── audit — 67룰 ─────────────────────────────────────────────────────────
 const v = (f, line, match, code, severity, desc) => ({ file: typeof f === 'string' ? f : f.rel, line, match: String(match).slice(0, 110), code, severity, desc });
 const TEAM_SVELTE = new Set(['view', 'container', 'glue']);
 const GLUE_KINDS = new Set(['glue', 'glue-server', 'glue-universal']); // 라우트 글루 — 자기 페이지 전속 위젯 마운트는 INSIGNIFICANT_SLICE 소비로 세지 않는다
@@ -735,6 +760,7 @@ async function collectViolations(files, config, filesArg = null) {
 				[/^\s*\$:\s/gm, 'LEGACY_REACTIVE_STATEMENT', '$: 반응문은 레거시 — $derived/$effect로'],
 				[/\bcreateEventDispatcher\b/g, 'LEGACY_EVENT_DISPATCHER', 'createEventDispatcher는 레거시 — onXxx callback prop으로'],
 				[/\bon:[A-Za-z][\w-]*/g, 'LEGACY_EVENT_DIRECTIVE', 'on: 이벤트 지시자는 레거시 — onclick 등 이벤트 속성으로'],
+				[/\buse:[A-Za-z][\w-]*/g, 'LEGACY_ACTION_DIRECTIVE', 'use: action은 구문 호환용 — Attachment<T> + {@attach ...}로'],
 				[/\$\$(?:props|restProps|slots)\b/g, 'LEGACY_COMPONENT_GLOBAL', '$$props/$$restProps/$$slots는 레거시 — $props/snippet으로'],
 				[/<\/?slot\b/g, 'LEGACY_SLOT', '<slot>은 레거시 — Snippet + {@render}로'],
 				[/<svelte:component\b/g, 'LEGACY_SVELTE_COMPONENT', '<svelte:component>는 레거시 — 컴포넌트 변수는 직접 <Component />로'],
@@ -785,6 +811,8 @@ async function collectViolations(files, config, filesArg = null) {
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '.remote는 slice의 api segment에만'));
 		if (kind === 'state' && loc.area === 'client' && loc.segment && loc.segment !== 'model')
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '*.svelte.ts 상태는 model segment에만'));
+		if (kind === 'attachment' && !((loc.area === 'client' && loc.segment === 'ui') || loc.area === 'routes'))
+			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '*.attach.ts DOM attachment는 ui segment 또는 routes 콜로케이션에만'));
 		if (kind === 'util' && loc.area === 'client' && loc.segment && loc.segment !== 'lib')
 			out.push(v(f, 1, f.rel, 'SEGMENT_SUFFIX_MISMATCH', 'error', '*.util.ts는 lib segment에만'));
 		if (kind === 'types' && loc.area === 'client' && loc.segment && loc.segment !== 'model')
@@ -1050,6 +1078,12 @@ async function collectVerifyChecks() {
 	checks.push(hookM
 		? { name: `${hooksPath}/pre-commit 마커 블록`, ok: hookM[1] === KIT_VERSION, detail: `v${hookM[1]}` }
 		: { name: `${hooksPath}/pre-commit 마커 블록`, ok: false, detail: '마커 블록 없음' });
+
+	const prettierIgnore = await readIfExists(join(ROOT, '.prettierignore'));
+	const prettierM = prettierIgnore?.match(/# >>> svelte-arch:begin\s*\(kit v([\d.]+)[\s\S]*?\.svelte-arch\/arch\.mjs[\s\S]*?# <<< svelte-arch:end/);
+	checks.push(prettierM
+		? { name: '.prettierignore kit CLI 마커 블록', ok: prettierM[1] === KIT_VERSION, detail: `v${prettierM[1]}` }
+		: { name: '.prettierignore kit CLI 마커 블록', ok: false, detail: '마커 블록 없음' });
 
 	checks.push({ name: '.svelte-arch/config.mjs', ok: existsSync(join(ROOT, '.svelte-arch/config.mjs')), detail: '' });
 	checks.push({ name: '.svelte-arch/templates/', ok: existsSync(join(ROOT, '.svelte-arch/templates')), detail: '' });
@@ -1322,6 +1356,10 @@ async function runPlan(args, config) {
 		}
 		const um = rel.match(/^src\/lib\/utils\/(.+)$/);
 		if (um) {
+			if (um[1].endsWith('.attach.ts')) {
+				addMove(rel, `${LIB_ROOT}/shared/ui/${um[1]}`, 'attachment', false);
+				continue;
+			}
 			let to = `${LIB_ROOT}/shared/lib/` + um[1];
 			if (to.endsWith('.ts') && !/\.(util|spec|test|svelte)\.ts$/.test(to) && !to.endsWith('.d.ts')) to = to.replace(/\.ts$/, '.util.ts');
 			addMove(rel, to, '', false); // 업무 로직 util일 수 있음 — shared/lib 배치는 추정

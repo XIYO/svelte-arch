@@ -1,4 +1,4 @@
-# 헌법 — SvelteKit × FSD 2.1 아키텍처 v6
+# 헌법 — SvelteKit × FSD 2.1 아키텍처 v7.1
 
 > 규범 전문. 요약은 SKILL.md, FSD 원전 번역·용어 사전은 fsd-guide.md, 감사 구현은 audit-rules.md.
 > 모든 조항은 도구·프로젝트 무관(도메인 0%). 프로젝트 특화는 각 레포의 `.svelte-arch/config.mjs`와 AGENTS.md가 갖는다.
@@ -38,7 +38,7 @@ smart+무지 칸이 공집합인 이유: "데이터를 안다" = "어느 slice�
 
 ### A2. 전면 마킹 불변식
 
-관장 트리(`src/**`, vendor·예약 파일 제외)의 모든 `.svelte`는 **글루**(`+page`/`+layout`/`+error`) · **`.view`** · **`.container`** · **`.stories`** 중 하나다. routes 콜로케이션도 예외 없음(무표 = `UNMARKED_COMPONENT`). 구표기 `.live.svelte`는 즉시 `LEGACY_SUFFIX`(이행기 페어·판정은 `.container`와 동일하게 유지되되 error). 모든 `.ts`는 §3 종별 중 하나로 접미사(또는 지정 위치)를 갖는다(`UNMARKED_TS`).
+관장 트리(`src/**`, vendor·예약 파일 제외)의 모든 `.svelte`는 **글루**(`+page`/`+layout`/`+error`) · **`.view`** · **`.container`** · **`.stories`** 중 하나다. routes 콜로케이션도 예외 없음(무표 = `UNMARKED_COMPONENT`). 구표기 `.live.svelte`는 즉시 `LEGACY_SUFFIX`(이행기 페어·판정은 `.container`와 동일하게 유지되되 error). 모든 `.ts`는 §3 종별 중 하나로 접미사(또는 지정 위치)를 갖는다(`UNMARKED_TS`, DOM lifecycle은 `ui/*.attach.ts`).
 
 ### A3. 타입 SSOT — wire 계약 정본 = `entities/<slice>/model/types.ts`
 
@@ -158,6 +158,7 @@ container·view 마운트, 라우트 파라미터 추출(`$derived(page.params.x
 - **정의**: props만 받아 그리는 컴포넌트. 판정: **mock props만으로 렌더되는가**. 상태 소유는 §4 — "정본이 컴포넌트 밖에 있는 상태" 금지(URL·전역·서버), 로컬 순수 뷰 상태(open·hover·펼침)는 합법.
 - **허용**: 하위 계층 view(딥/index)·shared/ui·`import type`(wire — index 경유)·util·아이콘. **금지**: `.remote` 값(`REMOTE_IN_VIEW`)·`*.svelte.ts` 값(`STATE_MODULE_IN_VIEW`)·`$app/state`·`$app/navigation`(`APP_STATE_IN_VIEW` — `active` 등은 prop 주입)·`.container` import.
 - **앵커**: `<!-- @component -->` 1행 + `type Props` 명명 + (shared/ui는 전 prop TSDoc). mutation은 콜백 `onXxx`로 위임.
+- **DOM lifecycle**: DOM 직접 조작·관찰은 `ui/*.attach.ts`의 `Attachment<T>`로 추출하고 `{@attach ...}`로 붙인다. Svelte 5.29+에서 `use:`는 호환용이므로 신규 코드에 쓰지 않는다(`LEGACY_ACTION_DIRECTIVE`). 외부 라이브러리가 action만 제공하면 `svelte/attachments`의 `fromAction()` 브리지를 쓴다.
 
 ### 3.4 `*.container.svelte` — smart (데이터 섬 배선)
 
