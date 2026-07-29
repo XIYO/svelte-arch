@@ -1,4 +1,4 @@
-# 감사 룰 매트릭스 — 67룰 (v7.1, steiger 흡수 + 인증 경계 + Svelte 5 attachment)
+# 감사 룰 매트릭스 — 67룰 (v7.2, steiger 흡수 + 인증 경계 + Svelte 5 attachment)
 
 > 구현 = `.svelte-arch/arch.mjs audit`. R0에 따라 모든 룰은 대상을 지명한다. 원칙: AST 말고 grep — 정규식 한 줄로 표현 안 되는 규율은 체크리스트(비자동)로.
 > 이행 전 프로젝트(구 트리 감지 시) audit은 룰을 돌리지 않고 `arch:plan` 안내만 출력한다.

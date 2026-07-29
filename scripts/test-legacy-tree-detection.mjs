@@ -43,8 +43,9 @@ function errorOutput(result) {
 
 try {
 	const fsdWithEmptyLegacyDir = await fixture('empty-legacy-dir');
-	await write(fsdWithEmptyLegacyDir, 'package.json', '{"name":"fixture"}\n');
+	await write(fsdWithEmptyLegacyDir, 'package.json', '{"name":"fixture","devDependencies":{"svelte-check":"fixture"}}\n');
 	await write(fsdWithEmptyLegacyDir, 'src/AGENTS.md', '# src\n');
+	await write(fsdWithEmptyLegacyDir, 'node_modules/.bin/svelte-check', '');
 	await write(fsdWithEmptyLegacyDir, 'src/lib/entities/post/index.ts', 'export {};\n');
 	await mkdir(join(fsdWithEmptyLegacyDir, 'src/features/old-slice/lib'), { recursive: true });
 

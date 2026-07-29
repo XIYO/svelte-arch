@@ -90,6 +90,24 @@ async function auditRuleCounts() {
   };
 }
 
+/** Codex plugin이 공식 Svelte MCP 연결을 실제로 번들하는지 확인한다. */
+async function svelteMcpBundle() {
+  const manifest = JSON.parse(await read('.codex-plugin/plugin.json'));
+  if (manifest.mcpServers !== './.mcp.json') {
+    throw new Error('Codex manifest가 ./.mcp.json Svelte MCP 번들을 선언하지 않습니다');
+  }
+
+  const config = JSON.parse(await read('.mcp.json'));
+  const svelte = config.mcpServers?.svelte;
+  if (
+    !svelte ||
+    typeof svelte !== 'object' ||
+    svelte.url !== 'https://mcp.svelte.dev/mcp'
+  ) {
+    throw new Error('.mcp.json의 공식 Svelte MCP endpoint 계약이 다릅니다');
+  }
+}
+
 const sources = {
   "kit/VERSION (SSOT)": await versionFile(),
   "arch.mjs KIT_VERSION": await kitVersion(),
@@ -126,6 +144,8 @@ if (distinctCounts.length !== 1) {
   process.exit(1);
 }
 
+await svelteMcpBundle();
+
 console.log(
-  `\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 여섯 소스 모두 v${distinct[0]} · 감사 룰 ${distinctCounts[0]}개`,
+  `\x1b[32m✓\x1b[0m 릴리스 버전 동기화 OK — 여섯 소스 모두 v${distinct[0]} · 감사 룰 ${distinctCounts[0]}개 · Svelte MCP 번들 OK`,
 );

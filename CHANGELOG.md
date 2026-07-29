@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.2.0 — 2026-07-29
+
+**Codex Svelte MCP 번들 (MINOR).** `svelte-arch` 설치만으로 공식 Svelte MCP를 함께 사용할 수 있게 해, 프로젝트마다 같은 remote endpoint를 중복 등록하던 설정을 플러그인 소유로 수렴했다.
+
+- Codex manifest의 `mcpServers`가 루트 `.mcp.json`을 선언하며, 공식 `https://mcp.svelte.dev/mcp`를 플러그인 제공 MCP로 연결한다. 별도 `codex mcp add`나 프로젝트별 Svelte MCP 설정이 필요 없다.
+- `svelte-check`는 대상 프로젝트의 devDependency로 둔다. 최초 `arch-sync`가 없으면 `bun add -d svelte-check`, 선언만 있고 설치본이 없으면 `bun install`로 보장해, 플러그인 설치 뒤 별도의 수동 검증기 설치가 필요 없게 한다.
+- Svelte MCP는 코딩 시점의 문법·권장 패턴 보조이고, `bun run check`는 네트워크와 무관한 최종 컴파일·타입·a11y 검증으로 유지한다. MCP 연결 실패는 보고 대상이지 로컬 검증 생략 사유가 아니다.
+- SKILL·주입 AGENTS 카드·kit 문서가 플러그인 소유권과 중복 등록 금지, 새 세션 로드 경계를 함께 명시한다. Codex 플러그인을 지원하지 않는 호스트는 자체 MCP 설정을 계속 소유한다.
+- 릴리스 가드와 별도 회귀 테스트가 manifest→`.mcp.json`의 공식 endpoint 계약을 확인한다.
+
 ## 7.1.0 — 2026-07-29
 
 **Svelte 5 attachment 정합 + 실제 코드 기반 구조 감지 (MINOR).** 최신 공식 권장 문법을 AGENTS·감사·파일 종별에 같은 방식으로 적용하고, 이행 뒤 남은 빈 폴더 때문에 감사를 건너뛰던 구멍을 닫았다.

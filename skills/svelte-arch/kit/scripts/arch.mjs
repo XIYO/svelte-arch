@@ -30,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '7.1.0';
+const KIT_VERSION = '7.2.0';
 const ROOT = process.cwd();
 const LIB_ROOT = 'src/lib';
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));

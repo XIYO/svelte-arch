@@ -26,6 +26,18 @@ const norm = (p) => p.replaceAll('\\', '/');
 const log = (s) => console.log(s);
 const done = [];
 
+async function runBun(args, failure) {
+	const child = Bun.spawn(['bun', ...args], {
+		cwd: ROOT,
+		stdout: 'inherit',
+		stderr: 'inherit'
+	});
+	if ((await child.exited) !== 0) {
+		console.error(`✗ ${failure}`);
+		process.exit(1);
+	}
+}
+
 // ── 0. 가드 ──────────────────────────────────────────────────────────────
 if (!existsSync(join(ROOT, 'package.json')) || !existsSync(join(ROOT, 'src'))) {
 	console.error('✗ 프로젝트 루트(package.json + src/)에서 실행하세요 — cwd:', ROOT);
@@ -141,6 +153,29 @@ if (!existsSync(join(ROOT, '.svelte-arch/config.mjs'))) {
 	if (changed) {
 		await writeFile(p, JSON.stringify(pkg, null, indent) + '\n', 'utf-8');
 		done.push('package.json scripts (arch:manifest·audit·analyze·new·plan)');
+	}
+}
+
+// ── 3.25 Svelte check — 대상 프로젝트의 devDependency로 보장 ───────────
+// svelte-check는 프로젝트의 Svelte·tsconfig·preprocessor를 함께 읽어야 하므로 plugin 내부
+// 바이너리로 실행하지 않는다. 대신 최초 arch-sync가 Bun devDependency를 멱등 보장한다.
+{
+	const p = join(ROOT, 'package.json');
+	const pkg = JSON.parse(await readFile(p, 'utf-8'));
+	const declared = Boolean(
+		pkg.devDependencies?.['svelte-check'] ||
+		pkg.dependencies?.['svelte-check'] ||
+		pkg.optionalDependencies?.['svelte-check']
+	);
+	const binary = join(ROOT, 'node_modules/.bin/svelte-check');
+	if (!declared) {
+		log('→ svelte-check 없음 — bun add -d svelte-check로 프로젝트 검증기를 설치합니다');
+		await runBun(['add', '-d', 'svelte-check'], 'svelte-check 개발 의존성 설치에 실패했습니다');
+		done.push('svelte-check (Bun devDependency 자동 설치)');
+	} else if (!existsSync(binary)) {
+		log('→ svelte-check는 선언됐지만 설치본이 없음 — bun install로 복구합니다');
+		await runBun(['install'], '선언된 svelte-check 설치에 실패했습니다');
+		done.push('node_modules의 svelte-check 설치 복구');
 	}
 }
 

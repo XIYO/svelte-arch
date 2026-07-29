@@ -55,8 +55,12 @@ codex plugin add svelte-arch@svelte-arch
 마켓플레이스 등록은 최초 1회만 필요하다. GitHub 배포본 업데이트는
 `codex plugin marketplace upgrade svelte-arch` 후 플러그인을 다시 설치한다.
 로컬 checkout은 현재 파일을 직접 읽는다. 변경을 다시 설치할 때는 Codex manifest의
-버전을 갱신한 뒤 `codex plugin add svelte-arch@svelte-arch`를 다시 실행한다.
-새 스킬을 확실히 로드하려면 설치 후 새 대화를 시작한다.
+버전을 갱신한 뒤 `codex plugin add svelte-arch@svelte-arch`를 다시 실행한다. 이 플러그인은
+공식 Svelte MCP를 함께 번들하므로, 설치·활성화 후 새 대화를 시작하면 프로젝트별
+`.mcp.json`·`.codex/config.toml`의 Svelte 서버 등록은 필요 없다. 최초 `arch-sync`는 대상
+프로젝트에 `svelte-check`가 없으면 `bun add -d svelte-check`로 설치한다. 즉 사용자에게는
+플러그인 설치 + 일반적인 kit 동기화만 남고, 같은 endpoint를 양쪽에 중복 등록하지 않는다.
+Codex 플러그인을 쓰지 않는 호스트는 그 호스트의 MCP 설정을 별도로 둔다.
 
 ### 프로젝트 kit 주입
 
@@ -94,12 +98,13 @@ bun <플러그인 경로>/skills/svelte-arch/kit/sync.mjs
 git config core.hooksPath .githooks
 ```
 
-수동 실행: `bun scripts/check-version-sync.mjs`. 릴리스 시 세 곳을 같은 버전으로 올린 뒤 push 한다.
+수동 실행: `bun scripts/check-version-sync.mjs`. 릴리스 시 여섯 곳을 같은 버전으로 올린 뒤 push 한다.
 
 ## 구성
 
 ```text
 commands/              # 슬래시 커맨드 — arch-sync(설치)·arch-feedback(업스트림 기여)
+.mcp.json              # Codex 플러그인이 번들하는 공식 Svelte MCP 연결
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
 ├── references/       # 헌법·fsd-guide(FSD 완역)·규율·Svelte 5 감사·매니페스트·도입·kit·업스트림 기여
