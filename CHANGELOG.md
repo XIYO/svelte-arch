@@ -1,5 +1,12 @@
 # Changelog
 
+## 7.2.1 — 2026-07-29
+
+**호스트 중립성 복구 (PATCH).** v7.2.0의 Svelte MCP 통합은 배포 자산 자체는 Claude Code와 Codex에서 공유 가능했지만, 코어 스킬·kit 문구가 Codex를 소유자로 잘못 지목했다.
+
+- 공용 `skills/`·`kit/`·AGENTS 템플릿은 특정 에이전트 이름을 제거하고, 지원 호스트가 공용 `.mcp.json`을 연결한다는 계약만 선언한다.
+- `.claude-plugin/`은 루트 `.mcp.json`을 자동 발견하고, `.codex-plugin/`은 같은 파일을 명시 참조하는 **배포 어댑터**로 역할을 분리했다. 두 어댑터의 이름·버전과 공용 MCP endpoint를 회귀 테스트로 함께 검증한다.
+
 ## 7.2.0 — 2026-07-29
 
 **Codex Svelte MCP 번들 (MINOR).** `svelte-arch` 설치만으로 공식 Svelte MCP를 함께 사용할 수 있게 해, 프로젝트마다 같은 remote endpoint를 중복 등록하던 설정을 플러그인 소유로 수렴했다.

@@ -90,11 +90,11 @@ async function auditRuleCounts() {
   };
 }
 
-/** Codex plugin이 공식 Svelte MCP 연결을 실제로 번들하는지 확인한다. */
+/** 공용 Svelte MCP 연결과 Codex 배포 어댑터의 참조를 함께 확인한다. */
 async function svelteMcpBundle() {
   const manifest = JSON.parse(await read('.codex-plugin/plugin.json'));
   if (manifest.mcpServers !== './.mcp.json') {
-    throw new Error('Codex manifest가 ./.mcp.json Svelte MCP 번들을 선언하지 않습니다');
+    throw new Error('Codex 배포 어댑터가 공용 ./.mcp.json을 참조하지 않습니다');
   }
 
   const config = JSON.parse(await read('.mcp.json'));

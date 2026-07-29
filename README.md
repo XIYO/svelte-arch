@@ -60,7 +60,21 @@ codex plugin add svelte-arch@svelte-arch
 `.mcp.json`·`.codex/config.toml`의 Svelte 서버 등록은 필요 없다. 최초 `arch-sync`는 대상
 프로젝트에 `svelte-check`가 없으면 `bun add -d svelte-check`로 설치한다. 즉 사용자에게는
 플러그인 설치 + 일반적인 kit 동기화만 남고, 같은 endpoint를 양쪽에 중복 등록하지 않는다.
-Codex 플러그인을 쓰지 않는 호스트는 그 호스트의 MCP 설정을 별도로 둔다.
+
+## 호스트 중립 배포 구조
+
+`svelte-arch`의 코어(스킬·kit·감사 규칙)와 `.mcp.json`은 호스트 중립이다. `.mcp.json`은 공식
+Svelte MCP 하나를 선언하는 공용 자산이며, 각 호스트의 배포 어댑터만 이를 해석한다.
+
+| 층 | 소유물 | 역할 |
+| --- | --- | --- |
+| 공용 코어 | `skills/`, `kit/`, `.mcp.json` | FSD 규칙·Svelte 검증 절차·공식 MCP endpoint |
+| Claude Code 어댑터 | `.claude-plugin/` | 루트 `.mcp.json` 자동 발견 |
+| Codex 어댑터 | `.codex-plugin/plugin.json` | `mcpServers`로 같은 루트 `.mcp.json` 명시 참조 |
+| 기타 호스트 어댑터 | 호스트별 manifest | 공용 `.mcp.json`을 발견·참조만 하며 코어 규칙을 복제하지 않음 |
+
+따라서 코어 규칙과 프로젝트가 특정 에이전트 이름을 알 필요는 없다. 지원 호스트에서는 플러그인
+설치만으로 MCP가 연결되고, 최초 `arch-sync`가 대상 프로젝트의 `svelte-check`를 보장한다.
 
 ### 프로젝트 kit 주입
 
@@ -104,7 +118,7 @@ git config core.hooksPath .githooks
 
 ```text
 commands/              # 슬래시 커맨드 — arch-sync(설치)·arch-feedback(업스트림 기여)
-.mcp.json              # Codex 플러그인이 번들하는 공식 Svelte MCP 연결
+.mcp.json              # 호스트 중립 공용 공식 Svelte MCP 연결
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
 ├── references/       # 헌법·fsd-guide(FSD 완역)·규율·Svelte 5 감사·매니페스트·도입·kit·업스트림 기여

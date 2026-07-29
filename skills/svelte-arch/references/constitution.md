@@ -1,4 +1,4 @@
-# 헌법 — SvelteKit × FSD 2.1 아키텍처 v7.2
+# 헌법 — SvelteKit × FSD 2.1 아키텍처 v7.2.1
 
 > 규범 전문. 요약은 SKILL.md, FSD 원전 번역·용어 사전은 fsd-guide.md, 감사 구현은 audit-rules.md.
 > 모든 조항은 도구·프로젝트 무관(도메인 0%). 프로젝트 특화는 각 레포의 `.svelte-arch/config.mjs`와 AGENTS.md가 갖는다.

@@ -1,14 +1,14 @@
-# arch kit — 설치·업데이트·버전 관리 (v7.2)
+# arch kit — 설치·업데이트·버전 관리 (v7.2.1)
 
 > 킷은 **프로젝트 레포에 커밋되는 로컬 설치물**(머신 글로벌 0 — 머신 드리프트·CI 불가 방지). 이 스킬이 배포 채널.
 
 > **실행 런타임 = Bun 전용.** sync·audit·migration·릴리스 검증은 Bun을 요구하며 Node fallback을 두지 않는다. 소스의 `node:` import는 Bun 호환 API 사용이다.
 
-## Codex Svelte MCP 소유권
+## Svelte MCP·check 소유권
 
-Codex용 `svelte-arch` 플러그인이 공식 원격 Svelte MCP를 번들한다. 이는 **plugin runtime** 의존성이지 아래 프로젝트 kit 설치 풋프린트가 아니다. 따라서 Codex에서 플러그인을 설치·활성화하고 새 세션을 시작했다면, 같은 서버를 프로젝트 `.mcp.json`이나 `.codex/config.toml`에 별도 등록하지 않는다.
+플러그인 루트의 `.mcp.json`은 공식 원격 Svelte MCP를 선언하는 **공용 배포 자산**이다. 지원 호스트의 배포 어댑터가 이 파일을 자동 발견하거나 명시 참조한다. 이는 아래 프로젝트 kit 설치 풋프린트와 별개이므로, 플러그인을 설치·활성화하고 새 세션을 시작한 같은 호스트에는 같은 서버를 프로젝트 설정으로 별도 등록하지 않는다.
 
-`svelte-check`는 반대로 대상 프로젝트의 Svelte·TypeScript·preprocessor·tsconfig를 함께 읽어야 하는 **프로젝트 devDependency**다. 그래서 kit은 이 바이너리를 플러그인 안에 숨겨 실행하지 않고, 최초 `arch-sync`에서 없으면 `bun add -d svelte-check`, 선언만 있고 설치본이 없으면 `bun install`로 멱등 보장한다. MCP는 문법·권장 패턴 보조 도구이고, `bun run check`는 네트워크와 무관한 최종 컴파일·타입·a11y 보장으로 항상 남는다. Codex 플러그인을 지원하지 않는 호스트는 해당 호스트의 MCP 설정을 별도로 소유한다.
+`svelte-check`는 반대로 대상 프로젝트의 Svelte·TypeScript·preprocessor·tsconfig를 함께 읽어야 하는 **프로젝트 devDependency**다. 그래서 kit은 이 바이너리를 플러그인 안에 숨겨 실행하지 않고, 최초 `arch-sync`에서 없으면 `bun add -d svelte-check`, 선언만 있고 설치본이 없으면 `bun install`로 멱등 보장한다. MCP는 문법·권장 패턴 보조 도구이고, `bun run check`는 네트워크와 무관한 최종 컴파일·타입·a11y 보장으로 항상 남는다. 지원하지 않는 호스트의 MCP 연결 방식은 그 호스트가 별도로 소유한다.
 
 ## 설치 풋프린트
 
@@ -49,7 +49,7 @@ bun <스킬경로>/kit/sync.mjs   # 최초=스캐폴드 / 재실행=kit-owned �
 - **v5→v6는 좌표계 개명(MAJOR)**이다. 공식 기본 좌표를 이미 쓰는 프로젝트는 `migrations/6.0.0.mjs`가 멱등 통과한다. 구 커스텀 좌표가 남아 있으면 디렉터리·deprecated `kit.files`·별칭·도구 설정을 함께 검토해야 하므로 자동 rename하지 않고 정확한 매핑을 출력해 중단한다. 구조 커밋으로 전환한 뒤 sync를 재실행한다.
 - **v6→v7은 문법 집행(MAJOR)**이다. 구조 이동 없이 Svelte 5 runes·Snippet·event callback·attachment 규칙을 audit과 AGENTS 카드에 추가한다. sync 뒤 `arch:audit`와 `bun run check`로 기존 부채를 확인한다.
 - **v7.1은 최신 attachment 정합(MINOR)**이다. `*.attach.ts`를 UI 종별로 인식하고 `use:`를 `{@attach}`로 올리며, 빈 구 디렉터리는 실제 이행 대상으로 오인하지 않는다.
-- **v7.2는 Codex Svelte MCP 번들(MINOR)**이다. 플러그인 manifest가 공식 원격 MCP를 소유하므로 프로젝트별 중복 등록 없이 `svelte_autofixer`를 쓴다.
+- **v7.2는 Svelte MCP 번들(MINOR)**이다. 공용 `.mcp.json`을 각 호스트 배포 어댑터가 연결하므로 프로젝트별 중복 등록 없이 `svelte_autofixer`를 쓴다.
 - 구 트리 감지 시: plan 안내 출력. 완료 후: `arch:audit` + `git diff` 리뷰 → `chore(arch): kit vX.Y.Z`.
 
 ## 업데이트 감지
@@ -60,7 +60,7 @@ bun <스킬경로>/kit/sync.mjs   # 최초=스캐폴드 / 재실행=kit-owned �
 
 - **MAJOR** — 규칙 비호환(좌표계·접미사 개편). 마이그레이션(또는 승인형 plan 경로) 동봉 의무.
 - **MINOR** — 룰 추가(도입 시 warn → 다음 MINOR error 승격은 외부 소비자가 생긴 뒤 재개하는 정책 — 현 단계는 소비자가 자기 프로젝트뿐이라 바로 error 허용).
-- **PATCH** — 버그픽스. 버전 갱신 = `kit/VERSION` + `arch.mjs` 헤더 + Claude/Codex `plugin.json` + CHANGELOG + SKILL 제목 여섯 곳 동시.
+- **PATCH** — 버그픽스. 버전 갱신 = `kit/VERSION` + `arch.mjs` 헤더 + 두 배포 manifest + CHANGELOG + SKILL 제목 여섯 곳 동시.
 
 ## 루트 AGENTS.md 마커 블록
 

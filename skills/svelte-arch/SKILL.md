@@ -3,13 +3,13 @@ name: svelte-arch
 description: SvelteKit × FSD 2.1 아키텍처 어드바이저 + 프로젝트 주입 킷. SvelteKit 공식 기본 좌표(src/routes·src/lib)를 유지한 FSD 계층·slice·segment를 안내·설치·감사하고, 서버 계층 remote→service→repository, dumb(view)/smart(container), 실행형 매니페스트, 인증 경계 규범을 채운다. Svelte/SvelteKit 프로젝트에서 컴포넌트·remote function·service·인증 경계를 만들거나 배치를 판단할 때, "FSD"·"아키텍처 표준"·"컴포넌트 체계화"·"인증 컴포넌트 역할"·"구조 정리/리팩토링" 요청 시, UI·서버 작업 시작 전(매니페스트 주입 의무), 새 프로젝트에 표준을 설치하거나 kit 버전을 업데이트할 때 반드시 사용한다.
 ---
 
-# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v7.2.0)
+# SvelteKit × FSD 2.1 아키텍처 (`svelte-arch` v7.2.1)
 
 한 문장 정의: **FSD 2.1 표준 구조(계층·slice·segment·public API·pages first)를 SvelteKit 방언으로 완역하고, FSD가 비워둔 절반(서버 계층·view/container 규율·발견성)을 자체 규범으로 채우는** 아키텍처 어드바이저 + 주입 킷. 목적은 하나 — 같은 것을 두 번 만들지 않게 하고, 팀(사람+에이전트)이 실수할 자리를 없앤다.
 
 **런타임 정본은 Bun이다.** kit·audit·migration·릴리스 가드는 Bun으로만 실행한다. `node:` 표준 라이브러리 import는 Bun 호환 레이어이므로 Node 런타임을 요구하거나 fallback하지 않는다.
 
-**Codex의 Svelte 도구 정본은 이 플러그인이다.** Codex 배포본은 공식 원격 Svelte MCP를 함께 번들하고, 최초 `arch-sync`는 대상 프로젝트에 `svelte-check`가 없으면 Bun 개발 의존성으로 설치한다. 따라서 플러그인 설치·활성화 후 새 세션 + 프로젝트의 일반적인 kit 동기화만 하면 된다. 같은 endpoint를 프로젝트 `.mcp.json`·`.codex/config.toml`에 중복 등록하지 않는다. MCP가 일시적으로 닿지 않으면 그 사실을 보고하되, 프로젝트 문맥을 읽는 로컬 `bun run check`는 항상 끝까지 실행한다. Codex 플러그인을 지원하지 않는 호스트의 MCP 연결은 그 호스트가 별도로 소유한다.
+**Svelte 도구 계약은 호스트 중립이다.** 플러그인 루트의 공용 `.mcp.json`은 공식 원격 Svelte MCP를 선언하고, 지원 호스트의 배포 어댑터가 이를 연결한다. 최초 `arch-sync`는 대상 프로젝트에 `svelte-check`가 없으면 Bun 개발 의존성으로 설치한다. 따라서 지원 호스트에서 플러그인을 설치·활성화한 새 세션 + 프로젝트의 일반적인 kit 동기화만 하면 된다. 같은 호스트에 같은 endpoint를 프로젝트 설정으로 중복 등록하지 않는다. MCP가 일시적으로 닿지 않으면 그 사실을 보고하되, 프로젝트 문맥을 읽는 로컬 `bun run check`는 항상 끝까지 실행한다.
 
 ## 4단 주소 체계 — 모든 파일은 주소로 역할을 선언한다
 
@@ -74,7 +74,7 @@ UI·서버 작업 감지
 → ① arch:manifest 실행·주입 (kit 미설치면 설치 제안 — references/kit.md)
 → ② 소비 결정: 있으면 소비 → 모자라면 variant → 없으면 배치 사다리 ①(콜로케이션 출생)
 → ③ 신설: arch:new 생성기 (segment 골격·public API·앵커 선재)
-→ ④ Svelte 변경이면 플러그인이 번들한 공식 Svelte MCP `svelte_autofixer` 전후 확인 → `bun run check` + arch:audit 통과
+→ ④ Svelte 변경이면 연결된 공식 Svelte MCP `svelte_autofixer` 전후 확인 → `bun run check` + arch:audit 통과
 ```
 
 **기존 프로젝트 온보딩 — 3단 이행 파이프라인 (동의 필수 규범)**: 구 구조 감지 시:

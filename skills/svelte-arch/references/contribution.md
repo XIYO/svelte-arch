@@ -12,7 +12,7 @@ push 권한(`gh api repos/XIYO/svelte-arch --jq .permissions.push`)과 kit 소�
 | O | X (다른 컴퓨터·kit 미설치 환경·클론 여건 없음) | **B. 이슈 등록** | `gh issue create` — 풍부한 컨텍스트(분석·제안·환경정보)만 접수. **후속 = 주 작업기에서 이슈를 보고 분석·구현** |
 | X | — | **C. PR** | 외부 기여자 경로: fork → 브랜치 → 구현/제안 문서 → PR |
 
-kit 소스 해석 순서: cwd `plugin.json` → `${CLAUDE_PLUGIN_ROOT}` → **플러그인 marketplace 설치 경로**(`~/.claude/plugins/marketplaces/svelte-arch`) → 임시 클론. 플러그인 **cache**(`plugins/cache/<이름>/<버전>/`)는 버전 스냅샷일 뿐 git 저장소가 아니고, **marketplace 쪽이 origin 연결된 실제 클론**이다(2026-07-10 실측 — cache에서 `git status`는 "not a git repository").
+kit 소스 해석 순서: cwd의 plugin manifest → **호스트가 제공하는 plugin root** → **플러그인 marketplace 설치 경로** → 임시 클론. 플러그인 **cache**(`plugins/cache/<이름>/<버전>/`)는 버전 스냅샷일 뿐 git 저장소가 아니고, **marketplace 쪽이 origin 연결된 실제 클론**이다(2026-07-10 실측 — cache에서 `git status`는 "not a git repository").
 
 ## 규모 판정 — 기계적 vs 설계급
 
@@ -57,10 +57,10 @@ kit 소스 해석 순서: cwd `plugin.json` → `${CLAUDE_PLUGIN_ROOT}` → **�
 - [ ] `bun scripts/check-version-sync.mjs` 통과
 
 ---
-🤖 `/arch-feedback`로 접수·작성 — Claude Code on behalf of XIYO.
+🤖 `/arch-feedback`로 접수·작성 — agent on behalf of XIYO.
 ```
 
-커밋에는 기존 관행대로 `Co-Authored-By: Claude <noreply@anthropic.com>` 트레일러를 붙인다. A(직접 push) 경로도 커밋 메시지·본문 구성은 동일 — PR 껍데기만 없다.
+커밋의 공저자 트레일러는 실제 작업 호스트·저장소 정책이 요구할 때만 붙이며 특정 에이전트 제공자를 하드코딩하지 않는다. A(직접 push) 경로도 커밋 메시지·본문 구성은 동일 — PR 껍데기만 없다.
 
 ## 이슈 본문 템플릿 (B 경로)
 
@@ -85,7 +85,7 @@ kit 소스 해석 순서: cwd `plugin.json` → `${CLAUDE_PLUGIN_ROOT}` → **�
 분석·구현을 시작할 수 있어야 한다>
 
 ---
-🤖 `/arch-feedback`로 접수 — Claude Code on behalf of XIYO.
+🤖 `/arch-feedback`로 접수 — agent on behalf of XIYO.
 ```
 
 라벨은 PR과 동일 택소노미(`type:*`·`area:*` + `source:agent-filed`). `scope:mechanical|proposal`은 구현 수위 제안으로만 붙인다.

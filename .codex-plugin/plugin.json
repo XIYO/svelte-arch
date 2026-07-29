@@ -1,6 +1,6 @@
 {
   "name": "svelte-arch",
-  "version": "7.2.0",
+  "version": "7.2.1",
   "description": "SvelteKit × FSD 2.1 architecture advisor and injectable project kit.",
   "author": {
     "name": "XIYO",
