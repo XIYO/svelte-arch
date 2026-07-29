@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.0.0 — 2026-07-29
+
+**Svelte 5 문법 게이트 + 코딩 시점 AGENTS 프로토콜 (MAJOR).** 새 코드에서 runes 규칙을 잊어도 `arch:audit`가 레거시 문법을 오류로 차단하고, kit이 주입하는 루트 AGENTS 블록이 작업 전·중·후의 선택을 짧게 재주입한다.
+
+- 레거시 `export let`, `$:`, `on:`, `createEventDispatcher`, `<slot>`, `$$props` 계열, `<svelte:component>`, `$app/stores`, `beforeUpdate`/`afterUpdate`를 Svelte 파일 전반에서 오류로 지목한다. vendor는 불가침이다.
+- AGENTS 마커에 runes·event callback·Snippet 렌더 규칙과 unit/integration/e2e 검증 경계를 추가했다. 지시는 압축하고 audit가 집행하므로 매뉴얼을 비대하게 만들지 않는다.
+- `specRoots`를 정식 설정으로 채택했다. 기본 `tests`/`e2e`를 유지하면서 `playwright/` 같은 프로젝트별 e2e 루트를 audit 안내와 plan 임포트 재작성에 반영한다.
+
 ## 6.1.0 — 2026-07-29
 
 **Playwright E2E 설계 스킬 추가 (MINOR).** `playwright-e2e`가 장황한 브라우저 스크립트를 도메인·논리 그룹·happy/unhappy 보고서 계층과 Page Object/fixture 경계로 바꾸는 절차를 제공한다.

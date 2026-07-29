@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v6)
+ * arch.mjs — SvelteKit × FSD 2.1 아키텍처 CLI (svelte-arch kit v7)
  *
  * ⚠ kit-owned — 직접 수정 금지. 업데이트(init 재실행) 시 덮어써진다.
  *    프로젝트 확장(룰·allowlist·중립 리터럴·pages 개방)은 .svelte-arch/config.mjs 에.
@@ -30,7 +30,7 @@ import { join, relative, basename, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
-const KIT_VERSION = '6.1.0';
+const KIT_VERSION = '7.0.0';
 const ROOT = process.cwd();
 const LIB_ROOT = 'src/lib';
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +46,7 @@ const norm = (p) => p.replaceAll('\\', '/');
 // ── config ───────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
 	layers: { pages: false },
+	specRoots: { integration: 'tests', e2e: 'e2e' },
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '삭제', '검색', '선택', '목록으로', '미리보기', '로딩 중…', '불러오는 중…', '검색 결과가 없습니다'],
 	allow: { crossSlice: [], containerOutsideGlue: [] },
 	authentication: {
@@ -73,6 +74,7 @@ async function loadConfig() {
 	return {
 		...DEFAULT_CONFIG, ...c,
 		layers: { ...DEFAULT_CONFIG.layers, ...(c.layers ?? {}) },
+		specRoots: { ...DEFAULT_CONFIG.specRoots, ...(c.specRoots ?? {}) },
 		authentication: {
 			...DEFAULT_CONFIG.authentication,
 			...(c.authentication ?? {})
@@ -725,16 +727,37 @@ async function collectViolations(files, config, filesArg = null) {
 				}
 			}
 		}
+		// Svelte 5 문법 게이트 — AGENTS 지시만으로는 망각되므로 audit가 강제한다.
+		// vendor는 외부 원본이라 불가침, 나머지 .svelte는 route 콜로케이션까지 포함한다.
+		if (f.rel.endsWith('.svelte') && !loc.vendor) {
+			const legacy = [
+				[/^\s*export\s+let\b/gm, 'LEGACY_EXPORT_LET', 'export let은 레거시 — $props() + Props 타입으로'],
+				[/^\s*\$:\s/gm, 'LEGACY_REACTIVE_STATEMENT', '$: 반응문은 레거시 — $derived/$effect로'],
+				[/\bcreateEventDispatcher\b/g, 'LEGACY_EVENT_DISPATCHER', 'createEventDispatcher는 레거시 — onXxx callback prop으로'],
+				[/\bon:[A-Za-z][\w-]*/g, 'LEGACY_EVENT_DIRECTIVE', 'on: 이벤트 지시자는 레거시 — onclick 등 이벤트 속성으로'],
+				[/\$\$(?:props|restProps|slots)\b/g, 'LEGACY_COMPONENT_GLOBAL', '$$props/$$restProps/$$slots는 레거시 — $props/snippet으로'],
+				[/<\/?slot\b/g, 'LEGACY_SLOT', '<slot>은 레거시 — Snippet + {@render}로'],
+				[/<svelte:component\b/g, 'LEGACY_SVELTE_COMPONENT', '<svelte:component>는 레거시 — 컴포넌트 변수는 직접 <Component />로'],
+				[/from\s+['"]\$app\/stores['"]/g, 'LEGACY_APP_STORES', '$app/stores는 레거시 — runes에서는 $app/state로'],
+				[/\b(?:beforeUpdate|afterUpdate)\s*\(/g, 'LEGACY_LIFECYCLE', 'beforeUpdate/afterUpdate는 레거시 — $effect.pre/$effect로']
+			];
+			for (const [pattern, code, desc] of legacy) {
+				for (const match of f.content.matchAll(pattern)) {
+					const line = f.content.slice(0, match.index).split('\n').length;
+					out.push(v(f, line, match[0].trim(), code, 'error', desc));
+				}
+			}
+		}
 		if (kind === 'unmarked-svelte')
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_COMPONENT', 'error', '무표 .svelte — .view/.container/.stories/글루로 역할 선언 (routes 콜로케이션 포함)'));
 		if (kind === 'unmarked-ts' && loc.area !== 'other')
 			out.push(v(f, 1, basename(f.rel), 'UNMARKED_TS', 'error', '무표 .ts — 종별 접미사(.util/.service/…·types.ts) 또는 지정 위치 필요'));
-		// spec 배치 — 유닛 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base). 통합=tests/ · e2e=e2e/ (src 밖, FSD 계층 밖)
+		// spec 배치 — 유닛 spec은 검증 대상과 콜로케이션. 통합/e2e 루트는 config.specRoots가 정한다.
 		if (kind === 'spec' && loc.area !== 'other') {
 			const base = baseOf(f.rel);
 			const dir = norm(dirname(f.rel));
 			const paired = files.some((x) => x !== f && !['spec', 'stories'].includes(x.kind) && norm(dirname(x.rel)) === dir && (basename(x.rel) === `${base}.ts` || basename(x.rel).startsWith(`${base}.`)));
-			if (!paired) out.push(v(f, 1, basename(f.rel), 'SPEC_PLACEMENT', 'error', 'src 안 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base) 의무 — 대상 없는 spec은 통합(tests/)·e2e(e2e/)로'));
+			if (!paired) out.push(v(f, 1, basename(f.rel), 'SPEC_PLACEMENT', 'error', `src 안 spec은 검증 대상과 콜로케이션(같은 폴더 동일 Base) 의무 — 대상 없는 spec은 통합(${config.specRoots.integration}/)·e2e(${config.specRoots.e2e}/)로`));
 		}
 		if (kind === 'container') {
 			if (basename(f.rel).endsWith('.live.svelte'))
@@ -1222,7 +1245,7 @@ async function loadOverrides() {
 	try { return JSON.parse(await readFile(p, 'utf-8')); } catch { return {}; }
 }
 
-async function runPlan(args) {
+async function runPlan(args, config) {
 	if (!isLegacyTree()) {
 		console.log('✓ 이미 FSD 좌표계(또는 구 트리 없음) — plan 불요. 감사는 arch:audit.');
 		return 0;
@@ -1314,9 +1337,9 @@ async function runPlan(args) {
 	// 동일 대상 충돌 — 두 소스가 한 대상으로 계산되면 나중 rename이 앞선 것을 덮어쓴다(자료 소실). apply 강제 중단 대상.
 	const dupes = [...Map.groupBy(applied, (m) => m.to).values()].filter((l) => l.length > 1);
 
-	// 임포트 재작성 — src 밖 소비자(tests·e2e)도 $lib/@ 절대 스펙을 쓰므로 포함(이동은 없음, 재작성만)
+	// 임포트 재작성 — src 밖 소비자(설정된 통합·e2e 루트)도 $lib/@ 절대 스펙을 쓰므로 포함(이동은 없음, 재작성만)
 	const files = [];
-	for (const consumerRoot of ['src', 'tests', 'e2e']) {
+	for (const consumerRoot of new Set(['src', config.specRoots.integration, config.specRoots.e2e])) {
 		const dir = join(ROOT, consumerRoot);
 		if (!existsSync(dir)) continue;
 		for await (const abs of walk(dir)) {
@@ -1516,7 +1539,7 @@ async function main() {
 	const config = await loadConfig();
 	const args = parseArgs(rest);
 	const positionals = rest.filter((a) => !a.startsWith('--') && !(rest[rest.indexOf(a) - 1] ?? '').match(/^--(slice|detail|files)$/));
-	if (cmd === 'plan') return runPlan(args);
+	if (cmd === 'plan') return runPlan(args, config);
 	if (cmd === 'new') return runNew(positionals);
 	if (cmd === 'verify') return runVerify(args);
 	if (isLegacyTree() && ['manifest', 'audit', 'analyze'].includes(cmd)) { legacyNotice(`arch:${cmd}`); return 0; }

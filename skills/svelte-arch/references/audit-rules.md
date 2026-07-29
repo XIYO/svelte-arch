@@ -83,7 +83,17 @@
 | `TYPES_ONLY` | types.ts·*.types.ts | 런타임 값 export (enum 포함 — union 타입 권장) | error |
 | `MISSING_AGENTS_MD` | 계층·slice 루트 | AGENTS.md 부재 (segment 면제 — kit이 씨앗 생성) | error |
 | `AGENTS_CONTEXT_BUDGET` | root·범위 AGENTS.md | root 32KiB / 범위 16KiB 초과 — 자동 로드 문맥 예산 경고, 코드·정본 링크로 중복 하강 | warn |
-| `SPEC_PLACEMENT` | src 안 spec | 같은 폴더에 동일 Base 검증 대상 부재 — 유닛 spec은 콜로케이션 의무, 통합=최상위 `tests/`·e2e=최상위 `e2e/`(src 밖) | error |
+| `SPEC_PLACEMENT` | src 안 spec | 같은 폴더에 동일 Base 검증 대상 부재 — 유닛 spec은 콜로케이션 의무, 통합/e2e 루트는 `config.specRoots`(기본 `tests`/`e2e`) | error |
+
+## F군 — Svelte 5 문법 (9)
+
+| 코드 | 대상 | 위반 | 심각도 |
+|---|---|---|---|
+| `LEGACY_EXPORT_LET` | 비-vendor `.svelte` | `export let` — `$props()` + `Props`로 | error |
+| `LEGACY_REACTIVE_STATEMENT` | 비-vendor `.svelte` | `$:` — `$derived`/`$effect`로 | error |
+| `LEGACY_EVENT_DISPATCHER`·`LEGACY_EVENT_DIRECTIVE` | 비-vendor `.svelte` | `createEventDispatcher`·`on:` — `onXxx` callback·이벤트 속성으로 | error |
+| `LEGACY_COMPONENT_GLOBAL`·`LEGACY_SLOT` | 비-vendor `.svelte` | `$$props` 계열·`<slot>` — `$props`·Snippet/`{@render}`로 | error |
+| `LEGACY_SVELTE_COMPONENT`·`LEGACY_APP_STORES`·`LEGACY_LIFECYCLE` | 비-vendor `.svelte` | `<svelte:component>`·`$app/stores`·`beforeUpdate`/`afterUpdate` | error |
 
 ## 체크리스트 룰 (비자동 — 카드·리뷰·에이전트 워크플로우에서 확인, 15)
 
@@ -94,6 +104,7 @@
 ```js
 export default {
 	layers: { pages: false },                 // pages 계층 개방 스위치
+	specRoots: { integration: 'tests', e2e: 'playwright' }, // 기본값과 다른 e2e 루트
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '검색'],
 	allow: { crossSlice: [], containerOutsideGlue: [] }, // 이행기 전용 공개 부채 — 사유 주석 의무, 줄어들기만
 	heavyReexportMax: 12,                     // HEAVY_REEXPORT 임계 (slice index 재수출 상한)

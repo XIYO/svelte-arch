@@ -8,6 +8,9 @@ export default {
 	// FSD 계층 스위치 — pages 는 기본 닫힘(routes 콜로케이션이 전담). 필요가 증명되면 true.
 	layers: { pages: false },
 
+	// src 밖 spec 소비자 루트 — 기본 integration='tests', e2e='e2e'와 다를 때만 선언.
+	// 예: specRoots: { integration: 'tests', e2e: 'playwright' },
+
 	// shared/ui 문구 prop 기본값 검사(DOMAIN_DEFAULT_IN_SHARED_UI)의 중립 리터럴 — kit 기본 목록을 대체한다.
 	neutralLiterals: ['확인', '취소', '닫기', '저장', '삭제', '검색', '선택', '목록으로', '미리보기', '로딩 중…', '불러오는 중…', '검색 결과가 없습니다'],
 

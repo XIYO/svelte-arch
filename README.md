@@ -29,7 +29,7 @@ src/lib/widgets / knowledge-list / ui / KnowledgeListSection.view.svelte
 
 1. **몰라서 만든다** → `bun run arch:manifest`(+`--slice`)가 shared/ui API·slice·서버 시그니처·wire 타입을 주입
 2. **알아도 안 쓴다** → 배치 사다리 + 소비 규율(소비 → variant → 신설)
-3. **그래도 만들면** → `bun run arch:audit`(57룰 — steiger의 no-layer-public-api·insignificant-slice 등 흡수)이 커밋 차단
+3. **그래도 만들면** → `bun run arch:audit`(Svelte 5 문법·FSD 경계 감사)이 커밋 차단
 
 ## 빠른 시작
 
@@ -101,7 +101,7 @@ git config core.hooksPath .githooks
 commands/              # 슬래시 커맨드 — arch-sync(설치)·arch-feedback(업스트림 기여)
 skills/svelte-arch/
 ├── SKILL.md          # 에이전트 진입점 (주소 체계·배치 사다리·프로토콜)
-├── references/       # 헌법·fsd-guide(FSD 완역)·규율·감사 57룰·매니페스트·도입·kit·업스트림 기여
+├── references/       # 헌법·fsd-guide(FSD 완역)·규율·Svelte 5 감사·매니페스트·도입·kit·업스트림 기여
 └── kit/              # sync.mjs·arch.mjs(CLI)·템플릿·마이그레이션
 ```
 
