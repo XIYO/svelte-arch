@@ -49,7 +49,7 @@ codex plugin add workbench@xiyo
 ## 히스토리
 
 이 저장소의 커밋 34개(2026-07-03 … 2026-07-29)는 파일 스냅샷으로 흡수돼 plug-hole 의 히스토리에는
-없습니다. 커밋 객체 전체는 소유자가 `git bundle`(HEAD `2bf2c6b`)로 따로 보관하며, SHA·날짜 표는
+없습니다. 커밋 객체 전체는 소유자가 `git bundle` 로 따로 보관하며, SHA·날짜 표는
 plug-hole 의 `plugins/workbench/docs/svelte-arch-kit-changelog-001.md` 에 남아 있습니다.
 
 ## License
